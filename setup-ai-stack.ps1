@@ -31,9 +31,15 @@ Set-Location `$baseDir
 if (-not (Test-Path 'tg-webui\.git'))  { git clone https://github.com/oobabooga/text-generation-webui.git tg-webui }
 if (-not (Test-Path 'OpenManus\.git')) { git clone https://github.com/FoundationAgents/OpenManus.git OpenManus }
 
-Start-Process 'ollama' -ArgumentList 'serve' -PassThru | Out-Null
-ollama pull llama3.1:8b
-ollama pull deepseek-r1:7b
+# Start-Process 'ollama' -ArgumentList 'serve' -PassThru | Out-Null
+# ollama pull llama3.1:8b
+# ollama pull deepseek-r1:7b
+# NEW (Ollama already running)
+if (-not (Test-Path "C:\Users\sgins\AppData\Local\Programs\Ollama\ollama.exe")) {
+    Log "Ollama executable not found"; exit 1
+}
+& "C:\Users\sgins\AppData\Local\Programs\Ollama\ollama.exe" pull llama3.1:8b
+& "C:\Users\sgins\AppData\Local\Programs\Ollama\ollama.exe" pull deepseek-r1:7b
 Log 'Ollama -> http://localhost:11434/v1'
 
 python -m venv venv
