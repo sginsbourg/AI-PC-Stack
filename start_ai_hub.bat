@@ -1,6 +1,7 @@
 @echo off
 color 1F
 title Local AI Hub - Setup and Launch
+cd C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack
 
 echo.
 echo ========================================
