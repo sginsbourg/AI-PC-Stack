@@ -1,10 +1,13 @@
 import gradio as gr
-from rag_system import create_rag_system, get_available_pdfs, create_rag_system_for_pdf
+from rag_system import create_rag_system, get_available_pdfs, create_rag_system_for_pdf, extract_pdf_metadata
 from langchain_community.llms import Ollama
 import os
-import requests
-from datetime import datetime
 import json
+import tempfile
+import datetime
+from typing import Dict, Any, List
+import hashlib
+import re
 
 # Initialize AI systems
 rag_chain = None
@@ -22,6 +25,32 @@ try:
     print("✓ General AI (Llama2) initialized successfully!")
 except Exception as e:
     print(f"✗ General AI initialization failed: {e}")
+
+# Cache system for storing intermediate results
+podcast_cache = {}
+
+def get_cache_key(stage: str, pdf_path: str = None) -> str:
+    """Generate a unique cache key for a stage and PDF"""
+    if pdf_path:
+        pdf_hash = hashlib.md5(pdf_path.encode()).hexdigest()
+        return f"{stage}_{pdf_hash}"
+    return stage
+
+def save_to_cache(key: str, data: Any):
+    """Save data to cache"""
+    podcast_cache[key] = {
+        "data": data,
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
+def load_from_cache(key: str) -> Any:
+    """Load data from cache if exists and is recent"""
+    if key in podcast_cache:
+        # Check if cache is recent (within 1 hour)
+        cache_time = datetime.datetime.fromisoformat(podcast_cache[key]["timestamp"])
+        if (datetime.datetime.now() - cache_time).total_seconds() < 3600:
+            return podcast_cache[key]["data"]
+    return None
 
 def query_rag_system(query):
     """Query the RAG system (your PDFs)"""
@@ -57,201 +86,319 @@ def query_both_ai_systems(query):
 {general_response}
 """
 
-def research_topic(topic):
-    """
-    Research a topic online to find recent information, reviews, and news.
-    This is a placeholder function that would integrate with search APIs.
-    """
-    try:
-        # In a real implementation, this would call search APIs
-        # For now, we'll use the general AI to simulate research
-        research_prompt = f"""
-        Research the following topic: {topic}
-        
-        Please provide:
-        1. Recent news and updates
-        2. Public reception and reviews (if available)
-        3. Author information and credibility (if applicable)
-        4. Publisher reputation (if applicable)
-        5. Any controversies or notable discussions
-        
-        Format the response as a comprehensive research report.
-        """
-        
-        return query_general_ai(research_prompt)
-    except Exception as e:
-        return f"Research error: {str(e)}"
+def format_metadata_display(metadata):
+    """Format metadata for better display in the UI"""
+    if not metadata or "error" in metadata:
+        return metadata
+    
+    formatted = metadata.copy()
+    
+    # Add source indicators
+    if formatted.get("author") != "Unknown":
+        source = "metadata" if formatted.get("author_found_in_metadata", True) else "extracted from text"
+        formatted["author"] = f"{formatted['author']} ({source})"
+    
+    if formatted.get("publisher") != "Unknown":
+        source = "metadata" if formatted.get("publisher_found_in_metadata", False) else "extracted from text"
+        formatted["publisher"] = f"{formatted['publisher']} ({source})"
+    
+    # Clean up the text preview
+    if "first_pages_text" in formatted:
+        preview = formatted["first_pages_text"]
+        # Remove excessive whitespace
+        preview = re.sub(r'\s+', ' ', preview)
+        formatted["text_preview"] = preview[:500] + "..." if len(preview) > 500 else preview
+        del formatted["first_pages_text"]
+    
+    return formatted
 
-def generate_podcast_script(pdf_path, custom_intro, custom_outro, research_level):
+def stage1_select_pdf(pdf_path):
     """
-    Generate a podcast script based on a specific PDF with research and custom elements.
-    
-    Args:
-        pdf_path (str): Path to the PDF file
-        custom_intro (str): Custom introduction text from the user
-        custom_outro (str): Custom outro text from the user
-        research_level (str): Level of research to conduct ('minimal', 'moderate', 'extensive')
-    
-    Returns:
-        dict: Dictionary containing the script and any metadata
+    Stage 1: PDF Selection with caching
     """
     if not pdf_path:
-        return {"error": "Please select a PDF file first."}
+        return {"error": "Please select a PDF file."}, None, None
+    
+    cache_key = get_cache_key("stage1", pdf_path)
+    cached_result = load_from_cache(cache_key)
+    
+    if cached_result:
+        return cached_result, pdf_path, "✓ PDF loaded from cache"
     
     try:
-        # Create a RAG system for the selected PDF
-        pdf_rag = create_rag_system_for_pdf(pdf_path)
+        # Validate PDF exists
+        if not os.path.exists(pdf_path):
+            return {"error": f"PDF file not found: {pdf_path}"}, None, "❌ PDF not found"
         
-        if not pdf_rag:
-            return {"error": f"Failed to load PDF: {pdf_path}"}
-        
-        # Extract basic information about the PDF
+        # Get basic info
         pdf_name = os.path.basename(pdf_path)
+        file_size = os.path.getsize(pdf_path)
+        file_date = datetime.datetime.fromtimestamp(os.path.getctime(pdf_path)).strftime("%Y-%m-%d %H:%M")
         
-        # Research phase based on the research level
-        research_content = ""
-        if research_level != "minimal":
-            research_prompt = f"""
-            Research information about the document: {pdf_name}
-            Please find:
-            1. Author information and credibility
-            2. Publisher reputation (if known)
-            3. Public reception and reviews
-            4. Recent news related to the content
-            5. Any controversies or notable discussions
-            
-            Provide a comprehensive research report.
-            """
-            research_content = research_topic(pdf_name)
+        result = {
+            "pdf_path": pdf_path,
+            "pdf_name": pdf_name,
+            "file_size": file_size,
+            "file_date": file_date,
+            "status": "selected"
+        }
         
-        # Generate podcast content
-        podcast_prompt = f"""
-        Create a professional podcast script based on the content of the document: {pdf_name}
+        save_to_cache(cache_key, result)
+        return result, pdf_path, "✓ PDF selected successfully"
         
-        RESEARCH CONTEXT (use this to enhance the podcast):
-        {research_content}
+    except Exception as e:
+        return {"error": f"Error selecting PDF: {str(e)}"}, None, f"❌ Error: {str(e)}"
+
+def stage2_analyze_pdf(pdf_data):
+    """
+    Stage 2: PDF Analysis with metadata extraction
+    """
+    if not pdf_data or "error" in pdf_data:
+        return {"error": "No valid PDF data provided"}, "❌ No PDF data"
+    
+    pdf_path = pdf_data["pdf_path"]
+    cache_key = get_cache_key("stage2", pdf_path)
+    cached_result = load_from_cache(cache_key)
+    
+    if cached_result:
+        return format_metadata_display(cached_result), "✓ PDF analysis loaded from cache"
+    
+    try:
+        # Extract metadata using the enhanced function
+        metadata = extract_pdf_metadata(pdf_path)
+        
+        # Add to our result
+        result = {**pdf_data, **metadata}
+        result["analysis_date"] = datetime.datetime.now().isoformat()
+        result["analysis_status"] = "completed"
+        
+        save_to_cache(cache_key, result)
+        return format_metadata_display(result), "✓ PDF analysis completed successfully"
+        
+    except Exception as e:
+        return {"error": f"PDF analysis failed: {str(e)}"}, f"❌ Analysis error: {str(e)}"
+
+def stage3_web_research(pdf_data, research_instructions):
+    """
+    Stage 3: Web Research using local AI tools
+    """
+    if not pdf_data or "error" in pdf_data:
+        return {"error": "No valid PDF data provided"}, "❌ No PDF data"
+    
+    pdf_path = pdf_data["pdf_path"]
+    cache_key = get_cache_key("stage3", pdf_path)
+    cached_result = load_from_cache(cache_key)
+    
+    if cached_result and not research_instructions:
+        return cached_result, "✓ Web research loaded from cache"
+    
+    try:
+        pdf_name = pdf_data["pdf_name"]
+        
+        # Research prompt
+        research_prompt = f"""
+        Conduct comprehensive web research about the document: {pdf_name}
+        
+        RESEARCH INSTRUCTIONS:
+        {research_instructions if research_instructions else "Perform general research about this document and its topics"}
+        
+        Please research and provide:
+        1. Author information, credentials, and credibility assessment
+        2. Publisher reputation and credibility
+        3. Amazon reviews and public reception (if available)
+        4. Recent news and updates related to the content
+        5. Controversies or notable discussions
+        6. Industry context and relevance
+        7. Similar works and comparative analysis
+        
+        Format your response as a comprehensive research report with clear sections.
+        """
+        
+        # Use the general AI for research
+        research_results = query_general_ai(research_prompt)
+        
+        result = {
+            **pdf_data,
+            "research_instructions": research_instructions,
+            "research_results": research_results,
+            "research_date": datetime.datetime.now().isoformat(),
+            "research_status": "completed"
+        }
+        
+        save_to_cache(cache_key, result)
+        return result, "✓ Web research completed successfully"
+        
+    except Exception as e:
+        return {"error": f"Web research failed: {str(e)}"}, f"❌ Research error: {str(e)}"
+
+def stage4_script_generation(research_data, script_instructions):
+    """
+    Stage 4: Script Generation using local AI tools
+    """
+    if not research_data or "error" in research_data:
+        return {"error": "No valid research data provided"}, "❌ No research data"
+    
+    pdf_path = research_data["pdf_path"]
+    cache_key = get_cache_key("stage4", pdf_path)
+    cached_result = load_from_cache(cache_key)
+    
+    if cached_result and not script_instructions:
+        return cached_result, "✓ Script loaded from cache"
+    
+    try:
+        pdf_name = research_data["pdf_name"]
+        research_results = research_data.get("research_results", "")
+        
+        # Script generation prompt
+        script_prompt = f"""
+        Create a professional podcast script based on:
+        Document: {pdf_name}
+        Research Findings: {research_results}
+        
+        SCRIPT INSTRUCTIONS:
+        {script_instructions if script_instructions else "Create an engaging, informative podcast script"}
         
         PODCAST FORMAT:
         - Host: Shay Ginsbourg (UK English male voice)
         - Co-host: Omer (AI assistant, UK English male voice)
         - Format: Conversational dialogue between Shay and Omer
-        - Include upbeat royalty-free music at the beginning
-        - Include slower royalty-free music at the end
-        - Add occasional short audio effects for emphasis
+        - Duration: 15-20 minutes
+        - Include natural pauses, humor, and engaging dialogue
+        - Structure: Introduction, main content divided into segments, conclusion
         
-        CUSTOM INTRODUCTION (provided by user):
-        {custom_intro}
-        
-        CUSTOM OUTRO (provided by user):
-        {custom_outro}
-        
-        Please create an engaging, informative podcast that:
-        1. Summarizes the key points of the document
-        2. Provides context from the research
-        3. Maintains a conversational tone between Shay and Omer
-        4. Includes subtle humor and engaging dialogue
-        5. Is suitable for a 15-20 minute podcast episode
-        
-        Format the script with clear speaker labels and audio cues.
+        Create a complete script with speaker labels, content, and timing cues.
         """
         
-        response = pdf_rag.invoke(podcast_prompt)
-        podcast_script = response['result']
+        # Use the general AI for script generation
+        script_content = query_general_ai(script_prompt)
         
-        # Format the final script
-        formatted_script = f"""
-🎙️ PODCAST SCRIPT: {pdf_name.replace('.pdf', '')}
-📅 Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-🔍 Research Level: {research_level}
-
-{'-'*50}
-INTRODUCTION
-{'-'*50}
-[Upbeat royalty-free music fades in, then fades to background]
-
-SHAY: Welcome to AI Insights Podcast! I'm your host, Shay Ginsbourg.
-
-OMER: And I'm Omer, your AI co-host and research assistant.
-
-SHAY: Today we're discussing: {pdf_name.replace('.pdf', '')}
-
-{custom_intro}
-
-[Music fades out]
-
-{'-'*50}
-MAIN CONTENT
-{'-'*50}
-{podcast_script}
-
-{'-'*50}
-CONCLUSION
-{'-'*50}
-{custom_outro}
-
-SHAY: That's all the time we have for today. Thank you for joining us!
-
-OMER: It was a pleasure to assist with the research and discussion.
-
-SHAY: Join us next time for more AI insights and discussions.
-
-[Slower royalty-free music fades in, then fades out]
-"""
-        
-        return {
-            "script": formatted_script,
-            "pdf_name": pdf_name,
-            "research_level": research_level,
-            "timestamp": datetime.now().isoformat()
+        result = {
+            **research_data,
+            "script_instructions": script_instructions,
+            "script_content": script_content,
+            "script_date": datetime.datetime.now().isoformat(),
+            "script_status": "completed"
         }
         
+        save_to_cache(cache_key, result)
+        return result, "✓ Script generation completed successfully"
+        
     except Exception as e:
-        return {"error": f"Error generating podcast: {str(e)}"}
+        return {"error": f"Script generation failed: {str(e)}"}, f"❌ Script error: {str(e)}"
 
-def generate_audio(script_data, voice_settings):
+def stage5_recording(script_data, voice_settings):
     """
-    Generate audio from the podcast script.
-    This is a placeholder function that would integrate with TTS services.
-    
-    Args:
-        script_data (dict): The podcast script data
-        voice_settings (dict): Voice preferences
-    
-    Returns:
-        dict: Audio file path or error message
+    Stage 5: Recording the dialog (simulated)
     """
+    if not script_data or "error" in script_data:
+        return {"error": "No valid script data provided"}, "❌ No script data"
+    
+    pdf_path = script_data["pdf_path"]
+    cache_key = get_cache_key("stage5", pdf_path)
+    cached_result = load_from_cache(cache_key)
+    
+    if cached_result:
+        return cached_result, "✓ Recording data loaded from cache"
+    
     try:
-        # In a real implementation, this would call a TTS API
-        # For now, we'll return a placeholder
-        return {
-            "status": "success",
-            "message": "Audio generation would be implemented with a TTS service",
-            "script_data": script_data
+        # Simulate recording process
+        # In a real implementation, this would use TTS services
+        
+        script_content = script_data.get("script_content", "")
+        recording_notes = "Simulated recording process. In a real implementation, this would generate audio files using TTS services."
+        
+        result = {
+            **script_data,
+            "voice_settings": voice_settings,
+            "recording_notes": recording_notes,
+            "recording_date": datetime.datetime.now().isoformat(),
+            "recording_status": "completed"
         }
+        
+        save_to_cache(cache_key, result)
+        return result, "✓ Recording simulation completed successfully"
+        
     except Exception as e:
-        return {"error": f"Audio generation error: {str(e)}"}
+        return {"error": f"Recording failed: {str(e)}"}, f"❌ Recording error: {str(e)}"
 
-def upload_to_podcast_platforms(audio_data, platforms):
+def stage6_audio_editing(recording_data, music_settings):
     """
-    Upload the generated audio to podcast platforms.
-    This is a placeholder function.
-    
-    Args:
-        audio_data (dict): The audio data to upload
-        platforms (list): List of platforms to upload to
-    
-    Returns:
-        dict: Upload status
+    Stage 6: Audio editing with music (simulated)
     """
+    if not recording_data or "error" in recording_data:
+        return {"error": "No valid recording data provided"}, "❌ No recording data"
+    
+    pdf_path = recording_data["pdf_path"]
+    cache_key = get_cache_key("stage6", pdf_path)
+    cached_result = load_from_cache(cache_key)
+    
+    if cached_result:
+        return cached_result, "✓ Audio editing data loaded from cache"
+    
     try:
-        # In a real implementation, this would call platform APIs
-        return {
-            "status": "success",
-            "message": f"Upload would be implemented for platforms: {', '.join(platforms)}",
-            "platforms": platforms
+        # Simulate audio editing process
+        editing_notes = "Simulated audio editing process. In a real implementation, this would add music, sound effects, and mix the audio."
+        
+        result = {
+            **recording_data,
+            "music_settings": music_settings,
+            "editing_notes": editing_notes,
+            "editing_date": datetime.datetime.now().isoformat(),
+            "editing_status": "completed"
         }
+        
+        save_to_cache(cache_key, result)
+        return result, "✓ Audio editing simulation completed successfully"
+        
     except Exception as e:
-        return {"error": f"Upload error: {str(e)}"}
+        return {"error": f"Audio editing failed: {str(e)}"}, f"❌ Editing error: {str(e)}"
+
+def stage7_finalize_podcast(editing_data, upload_settings):
+    """
+    Stage 7: Finalize podcast and prepare for distribution
+    """
+    if not editing_data or "error" in editing_data:
+        return {"error": "No valid editing data provided"}, "❌ No editing data"
+    
+    pdf_path = editing_data["pdf_path"]
+    cache_key = get_cache_key("stage7", pdf_path)
+    cached_result = load_from_cache(cache_key)
+    
+    if cached_result:
+        return cached_result, "✓ Finalization data loaded from cache"
+    
+    try:
+        # Generate podcast description
+        pdf_name = editing_data["pdf_name"]
+        description_prompt = f"""
+        Create an engaging podcast description for: {pdf_name}
+        
+        The description should be:
+        - Compelling and informative
+        - 2-3 paragraphs long
+        - Include key topics covered
+        - Mention the hosts: Shay Ginsbourg and Omer
+        - Include relevant keywords for discoverability
+        """
+        
+        podcast_description = query_general_ai(description_prompt)
+        
+        # Create final result
+        result = {
+            **editing_data,
+            "upload_settings": upload_settings,
+            "podcast_description": podcast_description,
+            "finalization_date": datetime.datetime.now().isoformat(),
+            "finalization_status": "completed",
+            "download_url": "simulated_download_url",  # Would be real in implementation
+            "upload_status": "simulated"  # Would track real upload status
+        }
+        
+        save_to_cache(cache_key, result)
+        return result, "✓ Podcast finalization completed successfully"
+        
+    except Exception as e:
+        return {"error": f"Finalization failed: {str(e)}"}, f"❌ Finalization error: {str(e)}"
 
 def get_pdf_list():
     """Returns list of available PDFs for dropdown"""
@@ -279,17 +426,30 @@ css = """
     font-size: 16px !important;
     line-height: 1.6 !important;
 }
-.podcast-controls {
+.podcast-stage {
     background: #f0f8ff;
     padding: 15px;
     border-radius: 10px;
     margin-bottom: 15px;
+}
+.stage-status {
+    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
 }
 """
 
 with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
     gr.Markdown("# 🚀 Local AI Hub - Multi AI Systems")
     gr.Markdown("### Choose between RAG (your PDFs) or General AI (broad knowledge)")
+    
+    # Store intermediate results between stages
+    current_pdf_data = gr.State({})
+    current_research_data = gr.State({})
+    current_script_data = gr.State({})
+    current_recording_data = gr.State({})
+    current_editing_data = gr.State({})
     
     with gr.Tabs():
         with gr.TabItem("🤖 RAG + General AI Combined", elem_classes="tab-button"):
@@ -368,93 +528,201 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
             )
         
         with gr.TabItem("🎙️ AI Podcast Generator", elem_classes="tab-button"):
-            with gr.Row():
-                with gr.Column():
-                    gr.Markdown("### Generate a Professional Podcast from PDF")
-                    
-                    with gr.Row():
-                        pdf_dropdown = gr.Dropdown(
-                            label="Select PDF Document",
-                            choices=get_available_pdfs(),
-                            value=get_available_pdfs()[0] if get_available_pdfs() else None,
-                            interactive=True
-                        )
-                        refresh_btn = gr.Button("🔄 Refresh List", size="sm")
-                    
-                    research_level = gr.Radio(
-                        choices=["minimal", "moderate", "extensive"],
-                        value="moderate",
-                        label="Research Level",
-                        info="How much online research to include"
-                    )
-                    
-                    custom_intro = gr.Textbox(
-                        label="Custom Introduction",
-                        placeholder="Add a custom introduction for the podcast...",
-                        lines=3,
-                        value="Today we have a fascinating document to discuss. Omer has done some research to provide context."
-                    )
-                    
-                    custom_outro = gr.Textbox(
-                        label="Custom Outro",
-                        placeholder="Add a custom conclusion for the podcast...",
-                        lines=3,
-                        value="That was an insightful discussion. We hope you learned something new today!"
-                    )
-                    
-                    generate_btn = gr.Button("Generate Podcast Script", variant="primary", size="lg")
-                
-                with gr.Column():
-                    script_output = gr.Textbox(
-                        label="Podcast Script",
-                        lines=20,
-                        interactive=True,
-                        elem_classes=["output-textbox"]
-                    )
-                    
-                    with gr.Row():
-                        download_script_btn = gr.Button("Download Script", size="sm")
-                        generate_audio_btn = gr.Button("Generate Audio", variant="secondary", size="sm")
-                        upload_podcast_btn = gr.Button("Upload to Platforms", variant="secondary", size="sm")
-                    
-                    status_output = gr.Textbox(
-                        label="Status",
-                        value="Ready to generate podcast",
-                        interactive=False
-                    )
+            gr.Markdown("### Professional Podcast Generation - 7 Stages")
             
-            # Set up the interactions
+            with gr.Tabs() as podcast_stages:
+                # Stage 1: PDF Selection
+                with gr.TabItem("Stage 1: Select PDF"):
+                    with gr.Row():
+                        with gr.Column():
+                            gr.Markdown("#### Select a PDF Document")
+                            pdf_dropdown = gr.Dropdown(
+                                label="Available PDFs",
+                                choices=get_available_pdfs(),
+                                value=get_available_pdfs()[0] if get_available_pdfs() else None,
+                                interactive=True
+                            )
+                            refresh_btn = gr.Button("🔄 Refresh List", size="sm")
+                            stage1_btn = gr.Button("Process PDF", variant="primary")
+                        
+                        with gr.Column():
+                            stage1_output = gr.JSON(label="PDF Information")
+                            stage1_status = gr.Textbox(label="Status", interactive=False)
+                
+                # Stage 2: PDF Analysis
+                with gr.TabItem("Stage 2: PDF Analysis"):
+                    with gr.Row():
+                        with gr.Column():
+                            gr.Markdown("#### Analyze PDF Metadata")
+                            stage2_btn = gr.Button("Analyze PDF", variant="primary")
+                        
+                        with gr.Column():
+                            stage2_output = gr.JSON(label="PDF Analysis Results")
+                            stage2_status = gr.Textbox(label="Status", interactive=False)
+                
+                # Stage 3: Web Research
+                with gr.TabItem("Stage 3: Web Research"):
+                    with gr.Row():
+                        with gr.Column():
+                            gr.Markdown("#### Research PDF Content Online")
+                            research_instructions = gr.Textbox(
+                                label="Research Instructions (optional)",
+                                placeholder="Specify what to research about this PDF...",
+                                lines=3
+                            )
+                            stage3_btn = gr.Button("Conduct Research", variant="primary")
+                        
+                        with gr.Column():
+                            stage3_output = gr.JSON(label="Research Results")
+                            stage3_status = gr.Textbox(label="Status", interactive=False)
+                
+                # Stage 4: Script Generation
+                with gr.TabItem("Stage 4: Script Generation"):
+                    with gr.Row():
+                        with gr.Column():
+                            gr.Markdown("#### Generate Podcast Script")
+                            script_instructions = gr.Textbox(
+                                label="Script Instructions (optional)",
+                                placeholder="Specify how the script should be structured...",
+                                lines=3
+                            )
+                            stage4_btn = gr.Button("Generate Script", variant="primary")
+                        
+                        with gr.Column():
+                            stage4_output = gr.Textbox(
+                                label="Podcast Script",
+                                lines=15,
+                                interactive=True
+                            )
+                            stage4_status = gr.Textbox(label="Status", interactive=False)
+                
+                # Stage 5: Recording
+                with gr.TabItem("Stage 5: Recording"):
+                    with gr.Row():
+                        with gr.Column():
+                            gr.Markdown("#### Record Podcast Dialog")
+                            voice_settings = gr.Textbox(
+                                label="Voice Settings (simulated)",
+                                value="Shay: UK English male, Omer: UK English male",
+                                lines=2
+                            )
+                            stage5_btn = gr.Button("Simulate Recording", variant="primary")
+                        
+                        with gr.Column():
+                            stage5_output = gr.JSON(label="Recording Results")
+                            stage5_status = gr.Textbox(label="Status", interactive=False)
+                
+                # Stage 6: Audio Editing
+                with gr.TabItem("Stage 6: Audio Editing"):
+                    with gr.Row():
+                        with gr.Column():
+                            gr.Markdown("#### Edit Audio & Add Music")
+                            music_settings = gr.Textbox(
+                                label="Music Settings (simulated)",
+                                value="Intro: upbeat music, Outro: slower music, Effects: occasional",
+                                lines=2
+                            )
+                            stage6_btn = gr.Button("Simulate Editing", variant="primary")
+                        
+                        with gr.Column():
+                            stage6_output = gr.JSON(label="Editing Results")
+                            stage6_status = gr.Textbox(label="Status", interactive=False)
+                
+                # Stage 7: Finalize & Distribute
+                with gr.TabItem("Stage 7: Finalize Podcast"):
+                    with gr.Row():
+                        with gr.Column():
+                            gr.Markdown("#### Finalize & Distribute Podcast")
+                            upload_settings = gr.Textbox(
+                                label="Upload Settings (simulated)",
+                                value="Platforms: Spotify, Apple Podcasts, Google Podcasts",
+                                lines=2
+                            )
+                            stage7_btn = gr.Button("Finalize Podcast", variant="primary")
+                            download_btn = gr.Button("Download Podcast", variant="secondary")
+                        
+                        with gr.Column():
+                            stage7_output = gr.JSON(label="Final Podcast Data")
+                            podcast_description = gr.Textbox(
+                                label="Podcast Description",
+                                lines=5,
+                                interactive=True
+                            )
+                            stage7_status = gr.Textbox(label="Status", interactive=False)
+            
+            # Connect all the stage buttons
             refresh_btn.click(
                 fn=get_pdf_list,
                 inputs=[],
                 outputs=pdf_dropdown
             )
             
-            generate_btn.click(
-                fn=generate_podcast_script,
-                inputs=[pdf_dropdown, custom_intro, custom_outro, research_level],
-                outputs=script_output
+            stage1_btn.click(
+                fn=stage1_select_pdf,
+                inputs=[pdf_dropdown],
+                outputs=[stage1_output, current_pdf_data, stage1_status]
             )
             
-            # Placeholder functions for audio generation and upload
-            generate_audio_btn.click(
-                fn=lambda: {"status": "Audio generation would be implemented with a TTS service"},
+            stage2_btn.click(
+                fn=stage2_analyze_pdf,
+                inputs=[current_pdf_data],
+                outputs=[stage2_output, stage2_status]
+            ).then(
+                fn=lambda x: x,
+                inputs=[stage2_output],
+                outputs=[current_research_data]
+            )
+            
+            stage3_btn.click(
+                fn=stage3_web_research,
+                inputs=[current_research_data, research_instructions],
+                outputs=[stage3_output, stage3_status]
+            ).then(
+                fn=lambda x: x,
+                inputs=[stage3_output],
+                outputs=[current_script_data]
+            )
+            
+            stage4_btn.click(
+                fn=stage4_script_generation,
+                inputs=[current_script_data, script_instructions],
+                outputs=[stage4_output, stage4_status]
+            ).then(
+                fn=lambda x: x,
+                inputs=[stage4_output],
+                outputs=[current_recording_data]
+            )
+            
+            stage5_btn.click(
+                fn=stage5_recording,
+                inputs=[current_recording_data, voice_settings],
+                outputs=[stage5_output, stage5_status]
+            ).then(
+                fn=lambda x: x,
+                inputs=[stage5_output],
+                outputs=[current_editing_data]
+            )
+            
+            stage6_btn.click(
+                fn=stage6_audio_editing,
+                inputs=[current_editing_data, music_settings],
+                outputs=[stage6_output, stage6_status]
+            )
+            
+            stage7_btn.click(
+                fn=stage7_finalize_podcast,
+                inputs=[current_editing_data, upload_settings],
+                outputs=[stage7_output, stage7_status]
+            ).then(
+                fn=lambda x: x.get("podcast_description", "") if isinstance(x, dict) else "",
+                inputs=[stage7_output],
+                outputs=[podcast_description]
+            )
+            
+            download_btn.click(
+                fn=lambda: "Download functionality would be implemented in a real system",
                 inputs=[],
-                outputs=status_output
-            )
-            
-            upload_podcast_btn.click(
-                fn=lambda: {"status": "Upload functionality would be implemented with platform APIs"},
-                inputs=[],
-                outputs=status_output
-            )
-            
-            download_script_btn.click(
-                fn=lambda script: {
-                    "status": f"Script ready for download ({len(script)} characters)"
-                },
-                inputs=script_output,
-                outputs=status_output
+                outputs=[stage7_status]
             )
     
     gr.Markdown("---")
