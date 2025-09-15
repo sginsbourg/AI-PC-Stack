@@ -1,227 +1,184 @@
 import gradio as gr
-from rag_system import create_rag_system, get_available_pdfs, create_rag_system_for_pdf, extract_comprehensive_metadata
-from langchain_community.llms import Ollama
 import os
-import datetime
-import hashlib
-import re
+import sys
+import subprocess
 
-print("=" * 50)
-print("STARTUP: Checking for PDF files...")
-startup_pdfs = get_available_pdfs()
-print(f"STARTUP: Found {len(startup_pdfs)} PDF files")
-for pdf in startup_pdfs:
-    print(f"STARTUP: - {pdf}")
-print("=" * 50)
-
-rag_chain = None
-general_ai = None
-
-try:
-    rag_chain = create_rag_system()
-    print("RAG system initialized successfully!")
-except Exception as e:
-    print(f"RAG initialization failed: {e}")
-
-try:
-    general_ai = Ollama(model="llama2")
-    print("General AI initialized successfully!")
-except Exception as e:
-    print(f"General AI initialization failed: {e}")
-
-podcast_cache = {}
-
-def get_cache_key(stage, pdf_path=None):
-    if pdf_path:
-        pdf_hash = hashlib.md5(pdf_path.encode()).hexdigest()
-        return f"{stage}_{pdf_hash}"
-    return stage
-
-def save_to_cache(key, data):
-    podcast_cache[key] = {
-        "data": data,
-        "timestamp": datetime.datetime.now().isoformat()
-    }
-
-def load_from_cache(key):
-    if key in podcast_cache:
-        cache_time = datetime.datetime.fromisoformat(podcast_cache[key]["timestamp"])
-        if (datetime.datetime.now() - cache_time).total_seconds() < 3600:
-            return podcast_cache[key]["data"]
-    return None
-
-def query_rag_system(query):
-    if not rag_chain:
-        return "RAG system unavailable."
+def launch_podcast_app():
+    """Launch the podcast generation application"""
     try:
-        response = rag_chain.invoke(query)
-        return response['result']
+        # Import and launch the podcast app
+        from podcast_app import podcast_demo
+        return podcast_demo
     except Exception as e:
-        return f"RAG Error: {e}"
+        print(f"Error launching podcast app: {e}")
+        return gr.Markdown(f"# ❌ Error\nCould not launch Podcast App: {e}")
 
-def query_general_ai(query):
-    if not general_ai:
-        return "General AI unavailable."
+def launch_rag_app():
+    """Launch the RAG Q&A application"""
     try:
-        response = general_ai.invoke(query)
-        return response
+        # Import and launch the RAG app
+        from rag_app import rag_demo
+        return rag_demo
     except Exception as e:
-        return f"General AI Error: {e}"
+        print(f"Error launching RAG app: {e}")
+        return gr.Markdown(f"# ❌ Error\nCould not launch RAG App: {e}")
 
-def manual_check_pdfs():
-    data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
-    pdf_files = []
-    
+def launch_general_ai_app():
+    """Launch the General AI application"""
     try:
-        if os.path.exists(data_path):
-            for root, dirs, files in os.walk(data_path):
-                for filename in files:
-                    if filename.lower().endswith('.pdf'):
-                        file_path = os.path.join(root, filename)
-                        pdf_files.append(file_path)
+        # Import and launch the General AI app
+        from general_ai_app import general_ai_demo
+        return general_ai_demo
     except Exception as e:
-        print(f"Manual check error: {e}")
-    
-    return pdf_files
+        print(f"Error launching General AI app: {e}")
+        return gr.Markdown(f"# ❌ Error\nCould not launch General AI App: {e}")
 
-def get_pdf_list():
-    pdf_files = get_available_pdfs()
-    if not pdf_files:
-        pdf_files = manual_check_pdfs()
-    
-    if pdf_files:
-        return gr.Dropdown(choices=pdf_files, value=pdf_files[0], label=f"Available PDFs ({len(pdf_files)} found)")
-    else:
-        return gr.Dropdown(choices=[], value=None, label="No PDF files found")
-
-def refresh_pdf_list():
-    pdf_files = get_available_pdfs()
-    if not pdf_files:
-        pdf_files = manual_check_pdfs()
-    
-    if pdf_files:
-        return gr.Dropdown(choices=pdf_files, value=pdf_files[0], label=f"Available PDFs ({len(pdf_files)} found)")
-    else:
-        return gr.Dropdown(choices=[], value=None, label="No PDF files found")
-
-def stage1_select_pdf(pdf_path):
-    if not pdf_path:
-        return {"error": "Please select a PDF file."}, None, None
-    
-    cache_key = get_cache_key("stage1", pdf_path)
-    cached_result = load_from_cache(cache_key)
-    
-    if cached_result:
-        return cached_result, pdf_path, "PDF loaded from cache"
-    
+def launch_combined_app():
+    """Launch the Combined AI application"""
     try:
-        if not os.path.exists(pdf_path):
-            return {"error": f"PDF file not found: {pdf_path}"}, None, "PDF not found"
-        
-        pdf_name = os.path.basename(pdf_path)
-        file_size = os.path.getsize(pdf_path)
-        
-        result = {
-            "pdf_path": pdf_path,
-            "pdf_name": pdf_name,
-            "file_size": file_size,
-            "status": "selected"
-        }
-        
-        save_to_cache(cache_key, result)
-        return result, pdf_path, "PDF selected successfully"
-        
+        # Import and launch the Combined AI app
+        from combined_app import combined_demo
+        return combined_demo
     except Exception as e:
-        return {"error": f"Error selecting PDF: {str(e)}"}, None, f"Error: {str(e)}"
+        print(f"Error launching Combined AI app: {e}")
+        return gr.Markdown(f"# ❌ Error\nCould not launch Combined AI App: {e}")
 
-def stage2_analyze_pdf(pdf_data):
-    if isinstance(pdf_data, str):
-        return {"error": pdf_data}, "Invalid PDF data"
-    
-    if not pdf_data or "error" in pdf_data:
-        return {"error": "No valid PDF data provided"}, "No PDF data"
-    
-    pdf_path = pdf_data["pdf_path"]
-    cache_key = get_cache_key("stage2", pdf_path)
-    cached_result = load_from_cache(cache_key)
-    
-    if cached_result:
-        return cached_result, "PDF analysis loaded from cache"
-    
-    try:
-        metadata = extract_comprehensive_metadata(pdf_path)
-        result = {**pdf_data, **metadata}
-        result["analysis_date"] = datetime.datetime.now().isoformat()
-        
-        save_to_cache(cache_key, result)
-        return result, "PDF analysis completed successfully"
-        
-    except Exception as e:
-        return {"error": f"PDF analysis failed: {str(e)}"}, f"Analysis error: {str(e)}"
-
+# Custom CSS for better layout
 css = """
-.container { max-width: 1400px !important; margin: 0 auto !important; }
-.tab-button { font-size: 16px !important; padding: 12px 24px !important; }
-.input-textbox textarea { min-height: 150px !important; font-size: 16px !important; }
-.output-textbox textarea { min-height: 400px !important; font-size: 16px !important; }
+.gate-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.app-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 30px;
+    margin: 15px;
+    text-align: center;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+.app-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+.app-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+.app-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+.app-description {
+    font-size: 16px;
+    opacity: 0.9;
+}
+.app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.status-bar {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 30px;
+}
 """
 
-with gr.Blocks(css=css, title="Local AI Hub") as demo:
-    gr.Markdown("# Local AI Hub - Multi AI Systems")
+with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
+    gr.Markdown("""
+    # 🚀 AI Hub - Application Gateway
+    ### Choose from our suite of AI-powered applications
+    """)
     
-    current_pdf_data = gr.State({})
+    with gr.Column(elem_classes=["gate-container"]):
+        # Application Grid
+        with gr.Row():
+            with gr.Column(elem_classes=["app-grid"]):
+                # Podcast App Card
+                with gr.Box(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>🎙️</div>", elem_id="podcast-icon")
+                    gr.Markdown("<div class='app-title'>Podcast Generator</div>", elem_id="podcast-title")
+                    gr.Markdown("<div class='app-description'>Create professional podcasts from PDF documents with AI voices and music</div>", elem_id="podcast-desc")
+                    podcast_btn = gr.Button("Launch Podcast Studio", variant="primary", size="lg")
+                
+                # RAG App Card
+                with gr.Box(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>📚</div>", elem_id="rag-icon")
+                    gr.Markdown("<div class='app-title'>RAG Q&A System</div>", elem_id="rag-title")
+                    gr.Markdown("<div class='app-description'>Ask questions about your PDF documents using Retrieval-Augmented Generation</div>", elem_id="rag-desc")
+                    rag_btn = gr.Button("Launch RAG System", variant="primary", size="lg")
+                
+                # General AI Card
+                with gr.Box(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>🌟</div>", elem_id="general-icon")
+                    gr.Markdown("<div class='app-title'>General AI Assistant</div>", elem_id="general-title")
+                    gr.Markdown("<div class='app-description'>Chat with our general AI model for broad knowledge and creative tasks</div>", elem_id="general-desc")
+                    general_btn = gr.Button("Launch AI Assistant", variant="primary", size="lg")
+                
+                # Combined AI Card
+                with gr.Box(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>🤖</div>", elem_id="combined-icon")
+                    gr.Markdown("<div class='app-title'>Combined AI Systems</div>", elem_id="combined-title")
+                    gr.Markdown("<div class='app-description'>Get answers from both RAG and General AI systems simultaneously</div>", elem_id="combined-desc")
+                    combined_btn = gr.Button("Launch Combined AI", variant="primary", size="lg")
+        
+        # Status and Info Section
+        with gr.Box(elem_classes=["status-bar"]):
+            gr.Markdown("### 📊 System Status")
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("**Available Applications:** 4")
+                    gr.Markdown("**PDF Files Found:** Checking...")
+                    gr.Markdown("**AI Models Loaded:** Llama2, Qwen:0.5b")
+                with gr.Column():
+                    gr.Markdown("**System Version:** 1.0.0")
+                    gr.Markdown("**Last Updated:** 2025-09-15")
+                    gr.Markdown("**Status:** ✅ Operational")
+        
+        # Output area for the selected application
+        app_output = gr.HTML()
     
-    with gr.Tabs():
-        with gr.TabItem("AI Podcast Generator"):
-            pdf_files = get_available_pdfs()
-            
-            if not pdf_files:
-                gr.Markdown("No PDF files found. Please add PDFs to the pdf folder.")
-            else:
-                with gr.Tabs() as podcast_stages:
-                    with gr.TabItem("Stage 1: Select PDF"):
-                        with gr.Row():
-                            with gr.Column():
-                                gr.Markdown("Select a PDF Document")
-                                pdf_dropdown = gr.Dropdown(
-                                    label=f"Available PDFs ({len(pdf_files)} found)",
-                                    choices=pdf_files,
-                                    value=pdf_files[0]
-                                )
-                                refresh_btn = gr.Button("Refresh List")
-                                stage1_btn = gr.Button("Process PDF")
-                            
-                            with gr.Column():
-                                stage1_output = gr.JSON(label="PDF Information")
-                                stage1_status = gr.Textbox(label="Status")
-                    
-                    with gr.TabItem("Stage 2: PDF Analysis"):
-                        with gr.Row():
-                            with gr.Column():
-                                gr.Markdown("Analyze PDF Metadata")
-                                stage2_btn = gr.Button("Analyze PDF")
-                            
-                            with gr.Column():
-                                stage2_output = gr.JSON(label="PDF Analysis Results")
-                                stage2_status = gr.Textbox(label="Status")
-                
-                refresh_btn.click(
-                    fn=refresh_pdf_list,
-                    inputs=[],
-                    outputs=pdf_dropdown
-                )
-                
-                stage1_btn.click(
-                    fn=stage1_select_pdf,
-                    inputs=[pdf_dropdown],
-                    outputs=[stage1_output, current_pdf_data, stage1_status]
-                )
-                
-                stage2_btn.click(
-                    fn=stage2_analyze_pdf,
-                    inputs=[current_pdf_data],
-                    outputs=[stage2_output, stage2_status]
-                )
+    # Connect buttons to their respective applications
+    podcast_btn.click(
+        fn=launch_podcast_app,
+        inputs=[],
+        outputs=[app_output]
+    )
+    
+    rag_btn.click(
+        fn=launch_rag_app,
+        inputs=[],
+        outputs=[app_output]
+    )
+    
+    general_btn.click(
+        fn=launch_general_ai_app,
+        inputs=[],
+        outputs=[app_output]
+    )
+    
+    combined_btn.click(
+        fn=launch_combined_app,
+        inputs=[],
+        outputs=[app_output]
+    )
 
 if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", server_port=7860, inbrowser=True)
+    demo.launch(
+        server_name="127.0.0.1",
+        server_port=7860,
+        inbrowser=True,
+        share=False
+    )
