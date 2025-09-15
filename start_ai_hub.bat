@@ -1,227 +1,155 @@
-import gradio as gr
-from rag_system import create_rag_system, get_available_pdfs, create_rag_system_for_pdf, extract_comprehensive_metadata
-from langchain_community.llms import Ollama
-import os
-import datetime
-import hashlib
-import re
+@echo off
+color 1F
+title Local AI Hub - Setup and Launch
 
-print("=" * 50)
-print("STARTUP: Checking for PDF files...")
-startup_pdfs = get_available_pdfs()
-print(f"STARTUP: Found {len(startup_pdfs)} PDF files")
-for pdf in startup_pdfs:
-    print(f"STARTUP: - {pdf}")
-print("=" * 50)
+echo.
+echo ========================================
+echo        LOCAL AI HUB SETUP
+echo ========================================
+echo.
+echo This script will set up your Local AI Hub environment.
+echo Please be patient as some steps may take several minutes.
+echo.
 
-rag_chain = None
-general_ai = None
+echo Checking if Ollama is installed...
+ollama --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Ollama not found!
+    echo.
+    echo Please install Ollama from: https://ollama.ai/
+    echo After installation, run this script again.
+    echo.
+    pause
+    exit /b 1
+)
 
-try:
-    rag_chain = create_rag_system()
-    print("RAG system initialized successfully!")
-except Exception as e:
-    print(f"RAG initialization failed: {e}")
+echo ✓ Ollama is installed
+echo.
 
-try:
-    general_ai = Ollama(model="llama2")
-    print("General AI initialized successfully!")
-except Exception as e:
-    print(f"General AI initialization failed: {e}")
+echo Creating PDF directory...
+if not exist "pdf" (
+    mkdir pdf
+    echo ✓ Created PDF directory: .\pdf\
+    echo.
+    echo Please add your PDF files to the 'pdf' folder, then restart the application.
+    echo.
+    pause
+    exit /b 0
+) else (
+    echo ✓ PDF directory already exists: .\pdf\
+)
 
-podcast_cache = {}
+echo.
+echo Setting up the virtual environment...
+if not exist "venv" (
+    python -m venv venv
+    echo ✓ Virtual environment created
+) else (
+    echo ✓ Virtual environment already exists
+)
 
-def get_cache_key(stage, pdf_path=None):
-    if pdf_path:
-        pdf_hash = hashlib.md5(pdf_path.encode()).hexdigest()
-        return f"{stage}_{pdf_hash}"
-    return stage
+echo.
+echo Activating the virtual environment...
+call venv\Scripts\activate
 
-def save_to_cache(key, data):
-    podcast_cache[key] = {
-        "data": data,
-        "timestamp": datetime.datetime.now().isoformat()
-    }
+echo.
+echo Upgrading pip to latest version...
+echo [This may take a moment...]
+python -m pip install --upgrade pip --quiet
+echo ✓ Pip upgraded successfully
 
-def load_from_cache(key):
-    if key in podcast_cache:
-        cache_time = datetime.datetime.fromisoformat(podcast_cache[key]["timestamp"])
-        if (datetime.datetime.now() - cache_time).total_seconds() < 3600:
-            return podcast_cache[key]["data"]
-    return None
+echo.
+echo Installing required Python libraries...
+echo [This may take 2-3 minutes...]
+echo Installing: langchain, langchain-community, langchain-ollama
+python -m pip install langchain langchain-community langchain-ollama --quiet
+echo Installing: pypdf, chromadb, gradio, PyPDF2
+python -m pip install pypdf chromadb gradio PyPDF2 --quiet
+echo ✓ All Python libraries installed successfully
 
-def query_rag_system(query):
-    if not rag_chain:
-        return "RAG system unavailable."
-    try:
-        response = rag_chain.invoke(query)
-        return response['result']
-    except Exception as e:
-        return f"RAG Error: {e}"
+echo.
+echo Checking if Ollama is running...
+tasklist /fi "imagename eq ollama.exe" | find "ollama.exe" > nul
+if errorlevel 1 (
+    echo Starting Ollama server...
+    echo [This will run in background]
+    start /B ollama serve
+    echo Waiting for Ollama to start...
+    timeout /t 5 /nobreak >nul
+) else (
+    echo ✓ Ollama is already running
+)
 
-def query_general_ai(query):
-    if not general_ai:
-        return "General AI unavailable."
-    try:
-        response = general_ai.invoke(query)
-        return response
-    except Exception as e:
-        return f"General AI Error: {e}"
+echo.
+echo ========================================
+echo        DOWNLOADING AI MODELS
+echo ========================================
+echo.
+echo This is the longest part - please be patient!
+echo Large AI models will be downloaded (several GB).
+echo This may take 10-30 minutes depending on your internet speed.
+echo.
 
-def manual_check_pdfs():
-    data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
-    pdf_files = []
-    
-    try:
-        if os.path.exists(data_path):
-            for root, dirs, files in os.walk(data_path):
-                for filename in files:
-                    if filename.lower().endswith('.pdf'):
-                        file_path = os.path.join(root, filename)
-                        pdf_files.append(file_path)
-    except Exception as e:
-        print(f"Manual check error: {e}")
-    
-    return pdf_files
+echo Downloading llama2 for general AI...
+echo [This may take 5-15 minutes...]
+ollama pull llama2
+echo ✓ llama2 model downloaded successfully
 
-def get_pdf_list():
-    pdf_files = get_available_pdfs()
-    if not pdf_files:
-        pdf_files = manual_check_pdfs()
-    
-    if pdf_files:
-        return gr.Dropdown(choices=pdf_files, value=pdf_files[0], label=f"Available PDFs ({len(pdf_files)} found)")
-    else:
-        return gr.Dropdown(choices=[], value=None, label="No PDF files found")
+echo.
+echo Downloading qwen:0.5b for RAG system...
+echo [This may take 3-10 minutes...]
+ollama pull qwen:0.5b
+echo ✓ qwen:0.5b model downloaded successfully
 
-def refresh_pdf_list():
-    pdf_files = get_available_pdfs()
-    if not pdf_files:
-        pdf_files = manual_check_pdfs()
-    
-    if pdf_files:
-        return gr.Dropdown(choices=pdf_files, value=pdf_files[0], label=f"Available PDFs ({len(pdf_files)} found)")
-    else:
-        return gr.Dropdown(choices=[], value=None, label="No PDF files found")
+echo.
+echo ========================================
+echo        STARTING AI APPLICATION
+echo ========================================
+echo.
+echo All setup complete! Starting the Local AI Hub...
+echo.
+echo The application will open in your web browser.
+echo URL: http://localhost:7860
+echo.
+echo IMPORTANT: Keep this window open while using the AI Hub.
+echo.
 
-def stage1_select_pdf(pdf_path):
-    if not pdf_path:
-        return {"error": "Please select a PDF file."}, None, None
-    
-    cache_key = get_cache_key("stage1", pdf_path)
-    cached_result = load_from_cache(cache_key)
-    
-    if cached_result:
-        return cached_result, pdf_path, "PDF loaded from cache"
-    
-    try:
-        if not os.path.exists(pdf_path):
-            return {"error": f"PDF file not found: {pdf_path}"}, None, "PDF not found"
-        
-        pdf_name = os.path.basename(pdf_path)
-        file_size = os.path.getsize(pdf_path)
-        
-        result = {
-            "pdf_path": pdf_path,
-            "pdf_name": pdf_name,
-            "file_size": file_size,
-            "status": "selected"
-        }
-        
-        save_to_cache(cache_key, result)
-        return result, pdf_path, "PDF selected successfully"
-        
-    except Exception as e:
-        return {"error": f"Error selecting PDF: {str(e)}"}, None, f"Error: {str(e)}"
+echo Checking for PDF files...
+dir pdf\*.pdf >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo WARNING: No PDF files found in the 'pdf' directory!
+    echo.
+    echo Please add PDF files to the 'pdf' folder, then restart the application.
+    echo.
+    pause
+    exit /b 0
+) else (
+    echo ✓ PDF files found in directory
+)
 
-def stage2_analyze_pdf(pdf_data):
-    if isinstance(pdf_data, str):
-        return {"error": pdf_data}, "Invalid PDF data"
-    
-    if not pdf_data or "error" in pdf_data:
-        return {"error": "No valid PDF data provided"}, "No PDF data"
-    
-    pdf_path = pdf_data["pdf_path"]
-    cache_key = get_cache_key("stage2", pdf_path)
-    cached_result = load_from_cache(cache_key)
-    
-    if cached_result:
-        return cached_result, "PDF analysis loaded from cache"
-    
-    try:
-        metadata = extract_comprehensive_metadata(pdf_path)
-        result = {**pdf_data, **metadata}
-        result["analysis_date"] = datetime.datetime.now().isoformat()
-        
-        save_to_cache(cache_key, result)
-        return result, "PDF analysis completed successfully"
-        
-    except Exception as e:
-        return {"error": f"PDF analysis failed: {str(e)}"}, f"Analysis error: {str(e)}"
+echo.
+echo Loading PDF files and initializing AI systems...
+echo [This may take 1-2 minutes...]
+echo - Scanning PDF directory...
+echo - Building knowledge base...
+echo - Initializing AI models...
+echo.
 
-css = """
-.container { max-width: 1400px !important; margin: 0 auto !important; }
-.tab-button { font-size: 16px !important; padding: 12px 24px !important; }
-.input-textbox textarea { min-height: 150px !important; font-size: 16px !important; }
-.output-textbox textarea { min-height: 400px !important; font-size: 16px !important; }
-"""
+echo Starting Multi-AI Application...
+python multi_ai_app.py
 
-with gr.Blocks(css=css, title="Local AI Hub") as demo:
-    gr.Markdown("# Local AI Hub - Multi AI Systems")
-    
-    current_pdf_data = gr.State({})
-    
-    with gr.Tabs():
-        with gr.TabItem("AI Podcast Generator"):
-            pdf_files = get_available_pdfs()
-            
-            if not pdf_files:
-                gr.Markdown("No PDF files found. Please add PDFs to the pdf folder.")
-            else:
-                with gr.Tabs() as podcast_stages:
-                    with gr.TabItem("Stage 1: Select PDF"):
-                        with gr.Row():
-                            with gr.Column():
-                                gr.Markdown("Select a PDF Document")
-                                pdf_dropdown = gr.Dropdown(
-                                    label=f"Available PDFs ({len(pdf_files)} found)",
-                                    choices=pdf_files,
-                                    value=pdf_files[0]
-                                )
-                                refresh_btn = gr.Button("Refresh List")
-                                stage1_btn = gr.Button("Process PDF")
-                            
-                            with gr.Column():
-                                stage1_output = gr.JSON(label="PDF Information")
-                                stage1_status = gr.Textbox(label="Status")
-                    
-                    with gr.TabItem("Stage 2: PDF Analysis"):
-                        with gr.Row():
-                            with gr.Column():
-                                gr.Markdown("Analyze PDF Metadata")
-                                stage2_btn = gr.Button("Analyze PDF")
-                            
-                            with gr.Column():
-                                stage2_output = gr.JSON(label="PDF Analysis Results")
-                                stage2_status = gr.Textbox(label="Status")
-                
-                refresh_btn.click(
-                    fn=refresh_pdf_list,
-                    inputs=[],
-                    outputs=pdf_dropdown
-                )
-                
-                stage1_btn.click(
-                    fn=stage1_select_pdf,
-                    inputs=[pdf_dropdown],
-                    outputs=[stage1_output, current_pdf_data, stage1_status]
-                )
-                
-                stage2_btn.click(
-                    fn=stage2_analyze_pdf,
-                    inputs=[current_pdf_data],
-                    outputs=[stage2_output, stage2_status]
-                )
-
-if __name__ == "__main__":
-    demo.launch(server_name="127.0.0.1", server_port=7860, inbrowser=True)
+echo.
+echo ========================================
+echo        APPLICATION CLOSED
+echo ========================================
+echo.
+echo The Local AI Hub has been closed.
+echo.
+echo To restart, you can:
+echo 1. Run this batch file again, OR
+echo 2. Run: python multi_ai_app.py (after activating venv)
+echo.
+echo Virtual environment deactivated.
+call venv\Scripts\deactivate
+pause
