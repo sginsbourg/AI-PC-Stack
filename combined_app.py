@@ -6,11 +6,6 @@ from langchain_community.llms import Ollama
 rag_chain = create_rag_system()
 general_ai = Ollama(model="llama2")
 
-def create_combined_demo():
-    with gr.Blocks(title="Combined AI Systems") as combined_demo:
-        # ... existing combined_demo code ...
-    return combined_demo
-
 def query_rag_system(query):
     if not rag_chain:
         return "RAG system unavailable."
@@ -40,29 +35,32 @@ def query_both_ai_systems(query):
 {general_response}
 """
 
-# Create the Combined demo
-with gr.Blocks(title="Combined AI Systems") as combined_demo:
-    gr.Markdown("# 🤖 Combined AI Systems")
-    gr.Markdown("### Get answers from both RAG and General AI")
-    
-    with gr.Row():
-        with gr.Column():
-            combined_input = gr.Textbox(
-                label="Your Question",
-                placeholder="Ask anything...",
-                lines=4
-            )
-            combined_btn = gr.Button("Ask Both AIs", variant="primary")
+def create_combined_demo():
+    """Create the Combined AI application"""
+    with gr.Blocks(title="Combined AI Systems") as combined_demo:
+        gr.Markdown("# 🤖 Combined AI Systems")
+        gr.Markdown("### Get answers from both RAG and General AI")
         
-        with gr.Column():
-            combined_output = gr.Textbox(
-                label="Combined AI Responses",
-                lines=12,
-                interactive=False
-            )
+        with gr.R极():
+            with gr.Column():
+                combined_input = gr.Textbox(
+                    label="Your Question",
+                    placeholder="Ask anything...",
+                    lines=4
+                )
+                combined_btn = gr.Button("Ask Both AIs", variant="primary")
+            
+            with gr.Column():
+                combined_output = gr.Textbox(
+                    label="Combined AI Responses",
+                    lines=12,
+                    interactive=False
+                )
+        
+        combined_btn.click(
+            fn=query_both_ai_systems,
+            inputs=combined_input,
+            outputs=combined_output
+        )
     
-    combined_btn.click(
-        fn=query_both_ai_systems,
-        inputs=combined_input,
-        outputs=combined_output
-    )
+    return combined_demo

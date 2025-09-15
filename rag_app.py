@@ -1,14 +1,8 @@
 import gradio as gr
-from rag_system import create_rag_system, get_available_pdfs
-from langchain_community.llms import Ollama
+from rag_system import create_rag_system
 
 # Initialize RAG system
 rag_chain = create_rag_system()
-
-def create_rag_demo():
-    with gr.Blocks(title="RAG Q&A System") as rag_demo:
-        # ... existing rag_demo code ...
-    return rag_demo
 
 def query_rag_system(query):
     if not rag_chain:
@@ -19,29 +13,32 @@ def query_rag_system(query):
     except Exception as e:
         return f"RAG Error: {e}"
 
-# Create the RAG demo
-with gr.Blocks(title="RAG Q&A System") as rag_demo:
-    gr.Markdown("# 📚 RAG Q&A System")
-    gr.Markdown("### Ask questions about your PDF documents")
-    
-    with gr.Row():
-        with gr.Column():
-            rag_input = gr.Textbox(
-                label="Your Question",
-                placeholder="Ask anything about your PDF documents...",
-                lines=4
-            )
-            rag_btn = gr.Button("Ask RAG", variant="primary")
+def create_rag_demo():
+    """Create the RAG Q&A application"""
+    with gr.Blocks(title="RAG Q&A System") as rag_demo:
+        gr.Markdown("# 📚 RAG Q&A System")
+        gr.Markdown("### Ask questions about your PDF documents")
         
-        with gr.Column():
-            rag_output = gr.Textbox(
-                label="RAG Response",
-                lines=8,
-                interactive=False
-            )
+        with gr.Row():
+            with gr.Column():
+                rag_input = gr.Textbox(
+                    label="Your Question",
+                    placeholder="Ask anything about your PDF documents...",
+                    lines=4
+                )
+                rag_btn = gr.Button("Ask RAG", variant="primary")
+            
+            with gr.Column():
+                rag_output = gr.Textbox(
+                    label="RAG Response",
+                    lines=8,
+                    interactive=False
+                )
+        
+        rag_btn.click(
+            fn=query_rag_system,
+            inputs=rag_input,
+            outputs=rag_output
+        )
     
-    rag_btn.click(
-        fn=query_rag_system,
-        inputs=rag_input,
-        outputs=rag_output
-    )
+    return rag_demo

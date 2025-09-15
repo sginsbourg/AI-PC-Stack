@@ -12,11 +12,6 @@ general_ai = Ollama(model="llama2")
 # Cache system
 podcast_cache = {}
 
-def create_podcast_demo():
-    with gr.Blocks(title="AI Podcast Generator") as podcast_demo:
-        # ... existing podcast_demo code ...
-    return podcast_demo
-
 def get_cache_key(stage, pdf_path=None):
     if pdf_path:
         pdf_hash = hashlib.md5(pdf_path.encode()).hexdigest()
@@ -147,56 +142,59 @@ podcast_css = """
 }
 """
 
-# Create the podcast demo
-with gr.Blocks(css=podcast_css, title="AI Podcast Generator") as podcast_demo:
-    gr.Markdown("# 🎙️ AI Podcast Generator")
-    gr.Markdown("### Create professional podcasts from your PDF documents")
-    
-    current_pdf_data = gr.State({})
-    
-    with gr.Tabs() as podcast_stages:
-        with gr.TabItem("Stage 1: Select PDF"):
-            with gr.Row():
-                with gr.Column():
-                    gr.Markdown("#### Select a PDF Document")
-                    pdf_files = get_pdf_list()
-                    pdf_dropdown = gr.Dropdown(
-                        label=f"Available PDFs ({len(pdf_files)} found)" if pdf_files else "No PDF files found",
-                        choices=pdf_files,
-                        value=pdf_files[0] if pdf_files else None
-                    )
-                    refresh_btn = gr.Button("🔄 Refresh List")
-                    stage1_btn = gr.Button("Process PDF", variant="primary")
-                
-                with gr.Column():
-                    stage1_output = gr.JSON(label="PDF Information")
-                    stage1_status = gr.Textbox(label="Status")
+def create_podcast_demo():
+    """Create the podcast generation application"""
+    with gr.Blocks(css=podcast_css, title="AI Podcast Generator") as podcast_demo:
+        gr.Markdown("# 🎙️ AI Podcast Generator")
+        gr.Markdown("### Create professional podcasts from your PDF documents")
         
-        with gr.TabItem("Stage 2: PDF Analysis"):
-            with gr.Row():
-                with gr.Column():
-                    gr.Markdown("#### Analyze PDF Metadata")
-                    stage2_btn = gr.Button("Analyze PDF", variant="primary")
-                
-                with gr.Column():
-                    stage2_output = gr.JSON(label="PDF Analysis Results")
-                    stage2_status = gr.Textbox(label="Status")
+        current_pdf_data = gr.State({})
+        
+        with gr.Tabs() as podcast_stages:
+            with gr.TabItem("Stage 1: Select PDF"):
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("#### Select a PDF Document")
+                        pdf_files = get_pdf_list()
+                        pdf_dropdown = gr.Dropdown(
+                            label=f"Available PDFs ({len(pdf_files)} found)" if pdf_files else "No PDF files found",
+                            choices=pdf_files,
+                            value=pdf_files[0] if pdf_files else None
+                        )
+                        refresh_btn = gr.Button("🔄 Refresh List")
+                        stage1_btn = gr.Button("Process PDF", variant="primary")
+                    
+                    with gr.Column():
+                        stage1_output = gr.JSON(label="PDF Information")
+                        stage1_status = gr.Textbox(label="Status")
+            
+            with gr.TabItem("Stage 2: PDF Analysis"):
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("#### Analyze PDF Metadata")
+                        stage2_btn = gr.Button("Analyze PDF", variant="primary")
+                    
+                    with gr.Column():
+                        stage2_output = gr.JSON(label="PDF Analysis Results")
+                        stage2_status = gr.Textbox(label="Status")
+        
+        # Connect the buttons
+        refresh_btn.click(
+            fn=refresh_pdf_list,
+            inputs=[],
+            outputs=pdf_dropdown
+        )
+        
+        stage1_btn.click(
+            fn=stage1_select_pdf,
+            inputs=[极dropdown],
+            outputs=[stage1_output, current_pdf_data, stage1_status]
+        )
+        
+        stage2_btn.click(
+            fn=stage2_analyze_pdf,
+            inputs=[current_pdf_data],
+            outputs=[stage2_output, stage2_status]
+        )
     
-    # Connect the buttons
-    refresh_btn.click(
-        fn=refresh_pdf_list,
-        inputs=[],
-        outputs=pdf_dropdown
-    )
-    
-    stage1_btn.click(
-        fn=stage1_select_pdf,
-        inputs=[pdf_dropdown],
-        outputs=[stage1_output, current_pdf_data, stage1_status]
-    )
-    
-    stage2_btn.click(
-        fn=stage2_analyze_pdf,
-        inputs=[current_pdf_data],
-        outputs=[stage2_output, stage2_status]
-    )
+    return podcast_demo
