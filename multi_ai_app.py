@@ -220,6 +220,10 @@ def stage2_analyze_pdf(pdf_data):
     """
     Stage 2: PDF Analysis with comprehensive metadata extraction
     """
+    # Handle case where pdf_data might be a string (error message)
+    if isinstance(pdf_data, str):
+        return {"error": pdf_data}, "❌ Invalid PDF data"
+    
     if not pdf_data or "error" in pdf_data:
         return {"error": "No valid PDF data provided"}, "❌ No PDF data"
     
@@ -228,7 +232,7 @@ def stage2_analyze_pdf(pdf_data):
     cached_result = load_from_cache(cache_key)
     
     if cached_result:
-        return format_metadata_display(cached_result), "✓ PDF analysis loaded from cache"
+        return format_metadata_display(cached极), "✓ PDF analysis loaded from cache"
     
     try:
         # Extract comprehensive metadata using the enhanced function
@@ -239,7 +243,7 @@ def stage2_analyze_pdf(pdf_data):
         result["analysis_date"] = datetime.datetime.now().isoformat()
         result["analysis_status"] = "completed"
         
-        save_to_cache(cache_key, result)
+        save极_cache(cache_key, result)
         return format_metadata_display(result), "✓ PDF analysis completed successfully"
         
     except Exception as e:
@@ -249,6 +253,10 @@ def stage3_web_research(pdf_data, research_instructions):
     """
     Stage 3: Web Research using local AI tools
     """
+    # Handle case where pdf_data might be a string (error message)
+    if isinstance(pdf_data, str):
+        return {"error": pdf_data}, "❌ Invalid PDF data"
+    
     if not pdf_data or "error" in pdf_data:
         return {"error": "No valid PDF data provided"}, "❌ No PDF data"
     
@@ -267,7 +275,7 @@ def stage3_web_research(pdf_data, research_instructions):
         Conduct comprehensive web research about the document: {pdf_name}
         
         RESEARCH INSTRUCTIONS:
-        {research_instructions if research_instructions else "Perform general research about this document and its topics"}
+        {research_极ructions if research_instructions else "Perform general research about this document and its topics"}
         
         Please research and provide:
         1. Author information, credentials, and credibility assessment
@@ -298,14 +306,18 @@ def stage3_web_research(pdf_data, research_instructions):
     except Exception as e:
         return {"error": f"Web research failed: {str(e)}"}, f"❌ Research error: {str(e)}"
 
-def stage4_script_generation(research_data, script_instructions):
+def stage4_script_generation(pdf_data, script_instructions):
     """
     Stage 4: Script Generation using local AI tools
     """
-    if not research_data or "error" in research_data:
-        return {"error": "No valid research data provided"}, "❌ No research data"
+    # Handle case where pdf_data might be a string (error message)
+    if isinstance(pdf_data, str):
+        return {"error": pdf_data}, "❌ Invalid PDF data"
     
-    pdf_path = research_data["pdf_path"]
+    if not pdf_data or "极" in pdf_data:
+        return {"error": "No valid PDF data provided"}, "❌ No PDF data"
+    
+    pdf_path = pdf_data["pdf_path"]
     cache_key = get_cache_key("stage4", pdf_path)
     cached_result = load_from_cache(cache_key)
     
@@ -313,8 +325,8 @@ def stage4_script_generation(research_data, script_instructions):
         return cached_result, "✓ Script loaded from cache"
     
     try:
-        pdf_name = research_data["pdf_name"]
-        research_results = research_data.get("research_results", "")
+        pdf_name = pdf_data["pdf_name"]
+        research_results = pdf_data.get("research_results", "")
         
         # Script generation prompt
         script_prompt = f"""
@@ -340,7 +352,7 @@ def stage4_script_generation(research_data, script_instructions):
         script_content = query_general_ai(script_prompt)
         
         result = {
-            **research_data,
+            **pdf_data,
             "script_instructions": script_instructions,
             "script_content": script_content,
             "script_date": datetime.datetime.now().isoformat(),
@@ -353,14 +365,18 @@ def stage4_script_generation(research_data, script_instructions):
     except Exception as e:
         return {"error": f"Script generation failed: {str(e)}"}, f"❌ Script error: {str(e)}"
 
-def stage5_recording(script_data, voice_settings):
+def stage5_recording(pdf_data, voice_settings):
     """
     Stage 5: Recording the dialog (simulated)
     """
-    if not script_data or "error" in script_data:
-        return {"error": "No valid script data provided"}, "❌ No script data"
+    # Handle case where pdf_data might be a string (error message)
+    if isinstance(pdf_data, str):
+        return {"error": pdf_data}, "❌ Invalid PDF data"
     
-    pdf_path = script_data["pdf_path"]
+    if not pdf_data or "error" in pdf_data:
+        return {"error": "No valid PDF data provided"}, "❌ No PDF data"
+    
+    pdf_path = pdf_data["pdf_path"]
     cache_key = get_cache_key("stage5", pdf_path)
     cached_result = load_from_cache(cache_key)
     
@@ -371,11 +387,11 @@ def stage5_recording(script_data, voice_settings):
         # Simulate recording process
         # In a real implementation, this would use TTS services
         
-        script_content = script_data.get("script_content", "")
+        script_content = pdf_data.get("script_content", "")
         recording_notes = "Simulated recording process. In a real implementation, this would generate audio files using TTS services."
         
         result = {
-            **script_data,
+            **pdf_data,
             "voice_settings": voice_settings,
             "recording_notes": recording_notes,
             "recording_date": datetime.datetime.now().isoformat(),
@@ -388,14 +404,18 @@ def stage5_recording(script_data, voice_settings):
     except Exception as e:
         return {"error": f"Recording failed: {str(e)}"}, f"❌ Recording error: {str(e)}"
 
-def stage6_audio_editing(recording_data, music_settings):
+def stage6_audio_editing(pdf_data, music_settings):
     """
     Stage 6: Audio editing with music (simulated)
     """
-    if not recording_data or "error" in recording_data:
-        return {"error": "No valid recording data provided"}, "❌ No recording data"
+    # Handle case where pdf_data might be a string (error message)
+    if isinstance(pdf_data, str):
+        return {"error": pdf_data}, "❌ Invalid PDF data"
     
-    pdf_path = recording_data["pdf_path"]
+    if not pdf_data or "error" in pdf_data:
+        return {"error": "No valid PDF data provided"}, "❌ No PDF data"
+    
+    pdf_path = pdf_data["pdf_path"]
     cache_key = get_cache_key("stage6", pdf_path)
     cached_result = load_from_cache(cache_key)
     
@@ -407,11 +427,11 @@ def stage6_audio_editing(recording_data, music_settings):
         editing_notes = "Simulated audio editing process. In a real implementation, this would add music, sound effects, and mix the audio."
         
         result = {
-            **recording_data,
+            **pdf_data,
             "music_settings": music_settings,
             "editing_notes": editing_notes,
             "editing_date": datetime.datetime.now().isoformat(),
-            "editing_status": "completed"
+            "editing_status极 "completed"
         }
         
         save_to_cache(cache_key, result)
@@ -420,23 +440,27 @@ def stage6_audio_editing(recording_data, music_settings):
     except Exception as e:
         return {"error": f"Audio editing failed: {str(e)}"}, f"❌ Editing error: {str(e)}"
 
-def stage7_finalize_podcast(editing_data, upload_settings):
+def stage7_finalize_podcast(pdf_data, upload_settings):
     """
     Stage 7: Finalize podcast and prepare for distribution
     """
-    if not editing_data or "error" in editing_data:
-        return {"error": "No valid editing data provided"}, "❌ No editing data"
+    # Handle case where pdf_data might be a string (error message)
+    if isinstance(pdf_data, str):
+        return {"error": pdf_data}, "❌ Invalid PDF data"
     
-    pdf_path = editing_data["pdf_path"]
+    if not pdf_data or "error" in pdf_data:
+        return {"error": "No valid PDF data provided"}, "❌ No PDF data"
+    
+    pdf_path = pdf_data["pdf_path"]
     cache_key = get_cache_key("stage7", pdf_path)
     cached_result = load_from_cache(cache_key)
     
     if cached_result:
-        return cached极, "✓ Finalization data loaded from cache"
+        return cached_result, "✓ Finalization data loaded from cache"
     
     try:
         # Generate podcast description
-        pdf_name = editing_data["pdf_name"]
+        pdf_name = pdf_data["pdf_name"]
         description_prompt = f"""
         Create an engaging podcast description for: {pdf_name}
         
@@ -452,7 +476,7 @@ def stage7_finalize_podcast(editing_data, upload_settings):
         
         # Create final result
         result = {
-            **editing_data,
+            **pdf_data,
             "upload_settings": upload_settings,
             "podcast_description": podcast_description,
             "finalization_date": datetime.datetime.now().isoformat(),
@@ -506,10 +530,6 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
     
     # Store intermediate results between stages
     current_pdf_data = gr.State({})
-    current_research_data = gr.State({})
-    current_script_data = gr.State({})
-    current_recording_data = gr.State({})
-    current_editing_data = gr.State({})
     
     with gr.Tabs():
         with gr.TabItem("🤖 RAG + General AI Combined", elem_classes="tab-button"):
@@ -528,7 +548,7 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
                         label="Combined AI Responses",
                         lines=20,
                         interactive=False,
-                        elem_classes=["output-textbox"]
+                        elem_classes=["极tput-textbox"]
                     )
             
             combined_btn.click(
@@ -567,7 +587,7 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
                 with gr.Column():
                     general_input = gr.Textbox(
                         label="General Question",
-                        placeholder="Ask anything...",
+                        placeholder极Ask anything...",
                         lines=6,
                         elem_classes=["input-textbox"]
                     )
@@ -698,7 +718,7 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
                                 music_settings = gr.Textbox(
                                     label="Music Settings (simulated)",
                                     value="Intro: upbeat music, Outro: slower music, Effects: occasional",
-                                    lines=2
+                                    lines极2
                                 )
                                 stage6_btn = gr.Button("Simulate Editing", variant="primary")
                             
@@ -745,41 +765,35 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
                     fn=stage2_analyze_pdf,
                     inputs=[current_pdf_data],
                     outputs=[stage2_output, stage2_status]
-                ).then(
-                    fn=lambda x: x,
-                    inputs=[stage2_output],
-                    outputs=[current_research_data]
                 )
                 
                 stage3_btn.click(
                     fn=stage3_web_research,
-                    inputs=[current_research_data, research_instructions],
+                    inputs=[current_pdf_data, research_instructions],
                     outputs=[stage3_output, stage3_status]
-                ).then(
-                    fn=lambda x: x,
-                    inputs=[stage3_output],
-                    outputs=[current_script_data]
                 )
                 
                 stage4_btn.click(
                     fn=stage4_script_generation,
-                    inputs=[current_script_data, script_instructions],
+                    inputs=[current_pdf_data, script_instructions],
                     outputs=[stage4_output, stage4_status]
-                ).then(
-                    fn=lambda x: x,
-                    inputs=[stage4_output],
-                    outputs=[current_recording_data]
+                )
+                
+                stage5_btn.click(
+                    fn=stage5_recording,
+                    inputs=[current_pdf_data, voice_settings],
+                    outputs=[stage5_output, stage5_status]
                 )
                 
                 stage6_btn.click(
                     fn=stage6_audio_editing,
-                    inputs=[current_editing_data, music_settings],
+                    inputs=[current_pdf_data, music_settings],
                     outputs=[stage6_output, stage6_status]
                 )
                 
                 stage7_btn.click(
                     fn=stage7_finalize_podcast,
-                    inputs=[current_editing_data, upload_settings],
+                    inputs=[current_pdf_data, upload_settings],
                     outputs=[stage7_output, stage7_status]
                 ).then(
                     fn=lambda x: x.get("podcast_description", "") if isinstance(x, dict) else "",
