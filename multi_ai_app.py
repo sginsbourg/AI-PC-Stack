@@ -6,7 +6,6 @@ import subprocess
 def launch_podcast_app():
     """Launch the podcast generation application"""
     try:
-        # Import and launch the podcast app
         from podcast_app import podcast_demo
         return podcast_demo
     except Exception as e:
@@ -16,7 +15,6 @@ def launch_podcast_app():
 def launch_rag_app():
     """Launch the RAG Q&A application"""
     try:
-        # Import and launch the RAG app
         from rag_app import rag_demo
         return rag_demo
     except Exception as e:
@@ -26,7 +24,6 @@ def launch_rag_app():
 def launch_general_ai_app():
     """Launch the General AI application"""
     try:
-        # Import and launch the General AI app
         from general_ai_app import general_ai_demo
         return general_ai_demo
     except Exception as e:
@@ -36,7 +33,6 @@ def launch_general_ai_app():
 def launch_combined_app():
     """Launch the Combined AI application"""
     try:
-        # Import and launch the Combined AI app
         from combined_app import combined_demo
         return combined_demo
     except Exception as e:
@@ -106,36 +102,36 @@ with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
         # Application Grid
         with gr.Row():
             with gr.Column(elem_classes=["app-grid"]):
-                # Podcast App Card
-                with gr.Box(elem_classes=["app-card"]):
-                    gr.Markdown("<div class='app-icon'>🎙️</div>", elem_id="podcast-icon")
-                    gr.Markdown("<div class='app-title'>Podcast Generator</div>", elem_id="podcast-title")
-                    gr.Markdown("<div class='app-description'>Create professional podcasts from PDF documents with AI voices and music</div>", elem_id="podcast-desc")
+                # Podcast App Card - Using Column instead of Box
+                with gr.Column(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>🎙️</div>")
+                    gr.Markdown("<div class='app-title'>Podcast Generator</div>")
+                    gr.Markdown("<div class='app-description'>Create professional podcasts from PDF documents with AI voices and music</div>")
                     podcast_btn = gr.Button("Launch Podcast Studio", variant="primary", size="lg")
                 
                 # RAG App Card
-                with gr.Box(elem_classes=["app-card"]):
-                    gr.Markdown("<div class='app-icon'>📚</div>", elem_id="rag-icon")
-                    gr.Markdown("<div class='app-title'>RAG Q&A System</div>", elem_id="rag-title")
-                    gr.Markdown("<div class='app-description'>Ask questions about your PDF documents using Retrieval-Augmented Generation</div>", elem_id="rag-desc")
+                with gr.Column(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>📚</div>")
+                    gr.Markdown("<div class='app-title'>RAG Q&A System</div>")
+                    gr.Markdown("<div class='app-description'>Ask questions about your PDF documents using Retrieval-Augmented Generation</div>")
                     rag_btn = gr.Button("Launch RAG System", variant="primary", size="lg")
                 
                 # General AI Card
-                with gr.Box(elem_classes=["app-card"]):
-                    gr.Markdown("<div class='app-icon'>🌟</div>", elem_id="general-icon")
-                    gr.Markdown("<div class='app-title'>General AI Assistant</div>", elem_id="general-title")
-                    gr.Markdown("<div class='app-description'>Chat with our general AI model for broad knowledge and creative tasks</div>", elem_id="general-desc")
+                with gr.Column(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>🌟</div>")
+                    gr.Markdown("<div class='app-title'>General AI Assistant</div>")
+                    gr.Markdown("<div class='app-description'>Chat with our general AI model for broad knowledge and creative tasks</div>")
                     general_btn = gr.Button("Launch AI Assistant", variant="primary", size="lg")
                 
                 # Combined AI Card
-                with gr.Box(elem_classes=["app-card"]):
-                    gr.Markdown("<div class='app-icon'>🤖</div>", elem_id="combined-icon")
-                    gr.Markdown("<div class='app-title'>Combined AI Systems</div>", elem_id="combined-title")
-                    gr.Markdown("<div class='app-description'>Get answers from both RAG and General AI systems simultaneously</div>", elem_id="combined-desc")
+                with gr.Column(elem_classes=["app-card"]):
+                    gr.Markdown("<div class='app-icon'>🤖</div>")
+                    gr.Markdown("<div class='app-title'>Combined AI Systems</div>")
+                    gr.Markdown("<div class='app-description'>Get answers from both RAG and General AI systems simultaneously</div>")
                     combined_btn = gr.Button("Launch Combined AI", variant="primary", size="lg")
         
         # Status and Info Section
-        with gr.Box(elem_classes=["status-bar"]):
+        with gr.Column(elem_classes=["status-bar"]):
             gr.Markdown("### 📊 System Status")
             with gr.Row():
                 with gr.Column():

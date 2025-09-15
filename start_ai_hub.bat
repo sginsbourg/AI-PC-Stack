@@ -1,9 +1,5 @@
 @echo off
-
 color 1F
-
-cd C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack
-
 title AI Hub - Application Gateway
 
 echo.
@@ -14,6 +10,8 @@ echo.
 echo This script will launch the AI Hub gateway.
 echo From here you can access all AI applications.
 echo.
+
+cd /d "C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack"
 
 echo Checking if Ollama is installed...
 ollama --version >nul 2>&1
@@ -66,10 +64,10 @@ echo Launching AI Hub Gateway...
 echo URL: http://localhost:7860
 echo.
 echo The gateway will give you access to:
-echo - Podcast Generator 🎙️
-echo - RAG Q&A System 📚
-echo - General AI Assistant 🌟
-echo - Combined AI Systems 🤖
+echo - Podcast Generator (Audio)
+echo - RAG Q&A System (Documents)
+echo - General AI Assistant (Chat)
+echo - Combined AI Systems (Both)
 echo.
 
 python multi_ai_app.py

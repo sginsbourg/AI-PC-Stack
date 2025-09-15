@@ -110,7 +110,7 @@ def stage2_analyze_pdf(pdf_data):
     
     pdf_path = pdf_data["pdf_path"]
     cache_key = get_cache_key("stage2", pdf_path)
-    cached_result = load极cache(cache_key)
+    cached_result = load_from_cache(cache_key)
     
     if cached_result:
         return cached_result, "PDF analysis loaded from cache"
