@@ -771,16 +771,6 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
                     outputs=[current_recording_data]
                 )
                 
-                stage5_btn.click(
-                    fn=stage5_recording,
-                    inputs=[current_recording_data, voice_settings],
-                    outputs=[stage5_output, stage极_status]
-                ).then(
-                    fn=lambda x: x,
-                    inputs=[stage5_output],
-                    outputs=[current_editing_data]
-                )
-                
                 stage6_btn.click(
                     fn=stage6_audio_editing,
                     inputs=[current_editing_data, music_settings],
