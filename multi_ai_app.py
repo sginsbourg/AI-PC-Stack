@@ -1,5 +1,5 @@
 import gradio as gr
-from rag_system import create_rag_system, get_available_pdfs, create_rag_system_for_pdf, extract_pdf_metadata
+from rag_system import create_rag_system, get_available_pdfs, create_rag_system_for_pdf, extract_comprehensive_metadata
 from langchain_community.llms import Ollama
 import os
 import json
@@ -93,22 +93,36 @@ def format_metadata_display(metadata):
     
     formatted = metadata.copy()
     
-    # Add source indicators
+    # Add source indicators with emojis
     if formatted.get("author") != "Unknown":
-        source = "metadata" if formatted.get("author_found_in_metadata", True) else "extracted from text"
+        source = "📄 metadata" if formatted.get("author_found_in_metadata", True) else "🔍 extracted from text"
         formatted["author"] = f"{formatted['author']} ({source})"
     
     if formatted.get("publisher") != "Unknown":
-        source = "metadata" if formatted.get("publisher_found_in_metadata", False) else "extracted from text"
+        source = "📄 metadata" if formatted.get("publisher_found_in_metadata", False) else "🔍 extracted from text"
         formatted["publisher"] = f"{formatted['publisher']} ({source})"
     
     # Clean up the text preview
-    if "first_pages_text" in formatted:
-        preview = formatted["first_pages_text"]
-        # Remove excessive whitespace
+    if "text_sample" in formatted:
+        preview = formatted["text_sample"]
+        # Remove excessive whitespace and clean up
         preview = re.sub(r'\s+', ' ', preview)
         formatted["text_preview"] = preview[:500] + "..." if len(preview) > 500 else preview
-        del formatted["first_pages_text"]
+        del formatted["text_sample"]
+    
+    # Format lists for better display
+    if "authors_found" in formatted and formatted["authors_found"]:
+        formatted["all_authors_found"] = ", ".join(formatted["authors_found"])
+        del formatted["authors_found"]
+    
+    if "publishers_found" in formatted and formatted["publishers_found"]:
+        formatted["all_publishers_found"] = ", ".join(formatted["publishers_found"])
+        del formatted["publishers_found"]
+    
+    # Add extraction summary
+    if "pages_analyzed" in formatted:
+        formatted["extraction_summary"] = f"Analyzed {formatted['pages_analyzed']} pages for metadata"
+        del formatted["pages_analyzed"]
     
     return formatted
 
@@ -151,7 +165,7 @@ def stage1_select_pdf(pdf_path):
 
 def stage2_analyze_pdf(pdf_data):
     """
-    Stage 2: PDF Analysis with metadata extraction
+    Stage 2: PDF Analysis with comprehensive metadata extraction
     """
     if not pdf_data or "error" in pdf_data:
         return {"error": "No valid PDF data provided"}, "❌ No PDF data"
@@ -164,8 +178,8 @@ def stage2_analyze_pdf(pdf_data):
         return format_metadata_display(cached_result), "✓ PDF analysis loaded from cache"
     
     try:
-        # Extract metadata using the enhanced function
-        metadata = extract_pdf_metadata(pdf_path)
+        # Extract comprehensive metadata using the enhanced function
+        metadata = extract_comprehensive_metadata(pdf_path)
         
         # Add to our result
         result = {**pdf_data, **metadata}
