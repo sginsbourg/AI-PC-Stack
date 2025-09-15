@@ -8,6 +8,16 @@ import datetime
 from typing import Dict, Any, List
 import hashlib
 import re
+import sys
+
+# Debug: Check what PDFs are found at startup
+print("=" * 50)
+print("STARTUP: Checking for PDF files...")
+startup_pdfs = get_available_pdfs()
+print(f"STARTUP: Found {len(startup_pdfs)} PDF files")
+for pdf in startup_pdfs:
+    print(f"STARTUP: - {pdf}")
+print("=" * 50)
 
 # Initialize AI systems
 rag_chain = None
@@ -125,6 +135,49 @@ def format_metadata_display(metadata):
         del formatted["pages_analyzed"]
     
     return formatted
+
+def manual_check_pdfs():
+    """Manual check for PDF files as a fallback"""
+    data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
+    pdf_files = []
+    
+    try:
+        if os.path.exists(data_path):
+            for root, dirs, files in os.walk(data_path):
+                for filename in files:
+                    if filename.lower().endswith('.pdf'):
+                        file_path = os.path.join(root, filename)
+                        pdf_files.append(file_path)
+                        print(f"MANUAL CHECK: Found {filename}")
+    except Exception as e:
+        print(f"MANUAL CHECK ERROR: {e}")
+    
+    return pdf_files
+
+def get_pdf_list():
+    """Returns list of available PDFs for dropdown"""
+    pdf_files = get_available_pdfs()
+    if not pdf_files:
+        print("Primary check failed, trying manual check...")
+        pdf_files = manual_check_pdfs()
+    
+    if pdf_files:
+        print(f"UI: Loaded {len(pdf_files)} PDF files for dropdown")
+        return gr.Dropdown(choices=pdf_files, value=pdf_files[0], label=f"Available PDFs ({len(pdf_files)} found)")
+    else:
+        print("UI: No PDF files found for dropdown")
+        return gr.Dropdown(choices=[], value=None, label="No PDF files found - please add files to the pdf folder")
+
+def refresh_pdf_list():
+    """Refresh the PDF list and return updated dropdown"""
+    pdf_files = get_available_pdfs()
+    if not pdf_files:
+        pdf_files = manual_check_pdfs()
+    
+    if pdf_files:
+        return gr.Dropdown(choices=pdf_files, value=pdf_files[0], label=f"Available PDFs ({len(pdf_files)} found)")
+    else:
+        return gr.Dropdown(choices=[], value=None, label="No PDF files found")
 
 def stage1_select_pdf(pdf_path):
     """
@@ -379,7 +432,7 @@ def stage7_finalize_podcast(editing_data, upload_settings):
     cached_result = load_from_cache(cache_key)
     
     if cached_result:
-        return cached_result, "✓ Finalization data loaded from cache"
+        return cached极, "✓ Finalization data loaded from cache"
     
     try:
         # Generate podcast description
@@ -413,13 +466,6 @@ def stage7_finalize_podcast(editing_data, upload_settings):
         
     except Exception as e:
         return {"error": f"Finalization failed: {str(e)}"}, f"❌ Finalization error: {str(e)}"
-
-def get_pdf_list():
-    """Returns list of available PDFs for dropdown"""
-    pdf_files = get_available_pdfs()
-    if pdf_files:
-        return gr.Dropdown(choices=pdf_files, value=pdf_files[0])
-    return gr.Dropdown(choices=[], value=None)
 
 # Custom CSS for better layout
 css = """
@@ -544,200 +590,218 @@ with gr.Blocks(css=css, title="Local AI Hub - Multi AI Systems") as demo:
         with gr.TabItem("🎙️ AI Podcast Generator", elem_classes="tab-button"):
             gr.Markdown("### Professional Podcast Generation - 7 Stages")
             
-            with gr.Tabs() as podcast_stages:
-                # Stage 1: PDF Selection
-                with gr.TabItem("Stage 1: Select PDF"):
-                    with gr.Row():
-                        with gr.Column():
-                            gr.Markdown("#### Select a PDF Document")
-                            pdf_dropdown = gr.Dropdown(
-                                label="Available PDFs",
-                                choices=get_available_pdfs(),
-                                value=get_available_pdfs()[0] if get_available_pdfs() else None,
-                                interactive=True
-                            )
-                            refresh_btn = gr.Button("🔄 Refresh List", size="sm")
-                            stage1_btn = gr.Button("Process PDF", variant="primary")
-                        
-                        with gr.Column():
-                            stage1_output = gr.JSON(label="PDF Information")
-                            stage1_status = gr.Textbox(label="Status", interactive=False)
+            # Get PDF files dynamically when UI is built
+            pdf_files = get_available_pdfs()
+            if not pdf_files:
+                pdf_files = manual_check_pdfs()
+            
+            if not pdf_files:
+                gr.Markdown("""
+                ## ⚠️ No PDF Files Found
                 
-                # Stage 2: PDF Analysis
-                with gr.TabItem("Stage 2: PDF Analysis"):
-                    with gr.Row():
-                        with gr.Column():
-                            gr.Markdown("#### Analyze PDF Metadata")
-                            stage2_btn = gr.Button("Analyze PDF", variant="primary")
-                        
-                        with gr.Column():
-                            stage2_output = gr.JSON(label="PDF Analysis Results")
-                            stage2_status = gr.Textbox(label="Status", interactive=False)
+                Please add PDF files to the following directory:
+                `C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\pdf`
                 
-                # Stage 3: Web Research
-                with gr.TabItem("Stage 3: Web Research"):
-                    with gr.Row():
-                        with gr.Column():
-                            gr.Markdown("#### Research PDF Content Online")
-                            research_instructions = gr.Textbox(
-                                label="Research Instructions (optional)",
-                                placeholder="Specify what to research about this PDF...",
-                                lines=3
-                            )
-                            stage3_btn = gr.Button("Conduct Research", variant="primary")
-                        
-                        with gr.Column():
-                            stage3_output = gr.JSON(label="Research Results")
-                            stage3_status = gr.Textbox(label="Status", interactive=False)
+                Then click the Refresh button or restart the application.
+                """)
                 
-                # Stage 4: Script Generation
-                with gr.TabItem("Stage 4: Script Generation"):
-                    with gr.Row():
-                        with gr.Column():
-                            gr.Markdown("#### Generate Podcast Script")
-                            script_instructions = gr.Textbox(
-                                label="Script Instructions (optional)",
-                                placeholder="Specify how the script should be structured...",
-                                lines=3
-                            )
-                            stage4_btn = gr.Button("Generate Script", variant="primary")
-                        
-                        with gr.Column():
-                            stage4_output = gr.Textbox(
-                                label="Podcast Script",
-                                lines=15,
-                                interactive=True
-                            )
-                            stage4_status = gr.Textbox(label="Status", interactive=False)
+                with gr.Row():
+                    refresh_btn = gr.Button("🔄 Refresh PDF List", variant="primary")
+            else:
+                with gr.Tabs() as podcast_stages:
+                    # Stage 1: PDF Selection
+                    with gr.TabItem("Stage 1: Select PDF"):
+                        with gr.Row():
+                            with gr.Column():
+                                gr.Markdown("#### Select a PDF Document")
+                                pdf_dropdown = gr.Dropdown(
+                                    label=f"Available PDFs ({len(pdf_files)} found)",
+                                    choices=pdf_files,
+                                    value=pdf_files[0],
+                                    interactive=True
+                                )
+                                refresh_btn = gr.Button("🔄 Refresh List", size="sm")
+                                stage1_btn = gr.Button("Process PDF", variant="primary")
+                            
+                            with gr.Column():
+                                stage1_output = gr.JSON(label="PDF Information")
+                                stage1_status = gr.Textbox(label="Status", interactive=False)
+                    
+                    # Stage 2: PDF Analysis
+                    with gr.TabItem("Stage 2: PDF Analysis"):
+                        with gr.Row():
+                            with gr.Column():
+                                gr.Markdown("#### Analyze PDF Metadata")
+                                stage2_btn = gr.Button("Analyze PDF", variant="primary")
+                            
+                            with gr.Column():
+                                stage2_output = gr.JSON(label="PDF Analysis Results")
+                                stage2_status = gr.Textbox(label="Status", interactive=False)
+                    
+                    # Stage 3: Web Research
+                    with gr.TabItem("Stage 3: Web Research"):
+                        with gr.Row():
+                            with gr.Column():
+                                gr.Markdown("#### Research PDF Content Online")
+                                research_instructions = gr.Textbox(
+                                    label="Research Instructions (optional)",
+                                    placeholder="Specify what to research about this PDF...",
+                                    lines=3
+                                )
+                                stage3_btn = gr.Button("Conduct Research", variant="primary")
+                            
+                            with gr.Column():
+                                stage3_output = gr.JSON(label="Research Results")
+                                stage3_status = gr.Textbox(label="Status", interactive=False)
+                    
+                    # Stage 4: Script Generation
+                    with gr.TabItem("Stage 4: Script Generation"):
+                        with gr.Row():
+                            with gr.Column():
+                                gr.Markdown("#### Generate Podcast Script")
+                                script_instructions = gr.Textbox(
+                                    label="Script Instructions (optional)",
+                                    placeholder="Specify how the script should be structured...",
+                                    lines=3
+                                )
+                                stage4_btn = gr.Button("Generate Script", variant="primary")
+                            
+                            with gr.Column():
+                                stage4_output = gr.Textbox(
+                                    label="Podcast Script",
+                                    lines=15,
+                                    interactive=True
+                                )
+                                stage4_status = gr.Textbox(label="Status", interactive=False)
+                    
+                    # Stage 5: Recording
+                    with gr.TabItem("Stage 5: Recording"):
+                        with gr.Row():
+                            with gr.Column():
+                                gr.Markdown("#### Record Podcast Dialog")
+                                voice_settings = gr.Textbox(
+                                    label="Voice Settings (simulated)",
+                                    value="Shay: UK English male, Omer: UK English male",
+                                    lines=2
+                                )
+                                stage5_btn = gr.Button("Simulate Recording", variant="primary")
+                            
+                            with gr.Column():
+                                stage5_output = gr.JSON(label="Recording Results")
+                                stage5_status = gr.Textbox(label="Status", interactive=False)
+                    
+                    # Stage 6: Audio Editing
+                    with gr.TabItem("Stage 6: Audio Editing"):
+                        with gr.Row():
+                            with gr.Column():
+                                gr.Markdown("#### Edit Audio & Add Music")
+                                music_settings = gr.Textbox(
+                                    label="Music Settings (simulated)",
+                                    value="Intro: upbeat music, Outro: slower music, Effects: occasional",
+                                    lines=2
+                                )
+                                stage6_btn = gr.Button("Simulate Editing", variant="primary")
+                            
+                            with gr.Column():
+                                stage6_output = gr.JSON(label="Editing Results")
+                                stage6_status = gr.Textbox(label="Status", interactive=False)
+                    
+                    # Stage 7: Finalize & Distribute
+                    with gr.TabItem("Stage 7: Finalize Podcast"):
+                        with gr.Row():
+                            with gr.Column():
+                                gr.Markdown("#### Finalize & Distribute Podcast")
+                                upload_settings = gr.Textbox(
+                                    label="Upload Settings (simulated)",
+                                    value="Platforms: Spotify, Apple Podcasts, Google Podcasts",
+                                    lines=2
+                                )
+                                stage7_btn = gr.Button("Finalize Podcast", variant="primary")
+                                download_btn = gr.Button("Download Podcast", variant="secondary")
+                            
+                            with gr.Column():
+                                stage7_output = gr.JSON(label="Final Podcast Data")
+                                podcast_description = gr.Textbox(
+                                    label="Podcast Description",
+                                    lines=5,
+                                    interactive=True
+                                )
+                                stage7_status = gr.Textbox(label="Status", interactive=False)
                 
-                # Stage 5: Recording
-                with gr.TabItem("Stage 5: Recording"):
-                    with gr.Row():
-                        with gr.Column():
-                            gr.Markdown("#### Record Podcast Dialog")
-                            voice_settings = gr.Textbox(
-                                label="Voice Settings (simulated)",
-                                value="Shay: UK English male, Omer: UK English male",
-                                lines=2
-                            )
-                            stage5_btn = gr.Button("Simulate Recording", variant="primary")
-                        
-                        with gr.Column():
-                            stage5_output = gr.JSON(label="Recording Results")
-                            stage5_status = gr.Textbox(label="Status", interactive=False)
+                # Connect all the stage buttons
+                refresh_btn.click(
+                    fn=refresh_pdf_list,
+                    inputs=[],
+                    outputs=pdf_dropdown
+                )
                 
-                # Stage 6: Audio Editing
-                with gr.TabItem("Stage 6: Audio Editing"):
-                    with gr.Row():
-                        with gr.Column():
-                            gr.Markdown("#### Edit Audio & Add Music")
-                            music_settings = gr.Textbox(
-                                label="Music Settings (simulated)",
-                                value="Intro: upbeat music, Outro: slower music, Effects: occasional",
-                                lines=2
-                            )
-                            stage6_btn = gr.Button("Simulate Editing", variant="primary")
-                        
-                        with gr.Column():
-                            stage6_output = gr.JSON(label="Editing Results")
-                            stage6_status = gr.Textbox(label="Status", interactive=False)
+                stage1_btn.click(
+                    fn=stage1_select_pdf,
+                    inputs=[pdf_dropdown],
+                    outputs=[stage1_output, current_pdf_data, stage1_status]
+                )
                 
-                # Stage 7: Finalize & Distribute
-                with gr.TabItem("Stage 7: Finalize Podcast"):
-                    with gr.Row():
-                        with gr.Column():
-                            gr.Markdown("#### Finalize & Distribute Podcast")
-                            upload_settings = gr.Textbox(
-                                label="Upload Settings (simulated)",
-                                value="Platforms: Spotify, Apple Podcasts, Google Podcasts",
-                                lines=2
-                            )
-                            stage7_btn = gr.Button("Finalize Podcast", variant="primary")
-                            download_btn = gr.Button("Download Podcast", variant="secondary")
-                        
-                        with gr.Column():
-                            stage7_output = gr.JSON(label="Final Podcast Data")
-                            podcast_description = gr.Textbox(
-                                label="Podcast Description",
-                                lines=5,
-                                interactive=True
-                            )
-                            stage7_status = gr.Textbox(label="Status", interactive=False)
-            
-            # Connect all the stage buttons
-            refresh_btn.click(
-                fn=get_pdf_list,
-                inputs=[],
-                outputs=pdf_dropdown
-            )
-            
-            stage1_btn.click(
-                fn=stage1_select_pdf,
-                inputs=[pdf_dropdown],
-                outputs=[stage1_output, current_pdf_data, stage1_status]
-            )
-            
-            stage2_btn.click(
-                fn=stage2_analyze_pdf,
-                inputs=[current_pdf_data],
-                outputs=[stage2_output, stage2_status]
-            ).then(
-                fn=lambda x: x,
-                inputs=[stage2_output],
-                outputs=[current_research_data]
-            )
-            
-            stage3_btn.click(
-                fn=stage3_web_research,
-                inputs=[current_research_data, research_instructions],
-                outputs=[stage3_output, stage3_status]
-            ).then(
-                fn=lambda x: x,
-                inputs=[stage3_output],
-                outputs=[current_script_data]
-            )
-            
-            stage4_btn.click(
-                fn=stage4_script_generation,
-                inputs=[current_script_data, script_instructions],
-                outputs=[stage4_output, stage4_status]
-            ).then(
-                fn=lambda x: x,
-                inputs=[stage4_output],
-                outputs=[current_recording_data]
-            )
-            
-            stage5_btn.click(
-                fn=stage5_recording,
-                inputs=[current_recording_data, voice_settings],
-                outputs=[stage5_output, stage5_status]
-            ).then(
-                fn=lambda x: x,
-                inputs=[stage5_output],
-                outputs=[current_editing_data]
-            )
-            
-            stage6_btn.click(
-                fn=stage6_audio_editing,
-                inputs=[current_editing_data, music_settings],
-                outputs=[stage6_output, stage6_status]
-            )
-            
-            stage7_btn.click(
-                fn=stage7_finalize_podcast,
-                inputs=[current_editing_data, upload_settings],
-                outputs=[stage7_output, stage7_status]
-            ).then(
-                fn=lambda x: x.get("podcast_description", "") if isinstance(x, dict) else "",
-                inputs=[stage7_output],
-                outputs=[podcast_description]
-            )
-            
-            download_btn.click(
-                fn=lambda: "Download functionality would be implemented in a real system",
-                inputs=[],
-                outputs=[stage7_status]
-            )
+                stage2_btn.click(
+                    fn=stage2_analyze_pdf,
+                    inputs=[current_pdf_data],
+                    outputs=[stage2_output, stage2_status]
+                ).then(
+                    fn=lambda x: x,
+                    inputs=[stage2_output],
+                    outputs=[current_research_data]
+                )
+                
+                stage3_btn.click(
+                    fn=stage3_web_research,
+                    inputs=[current_research_data, research_instructions],
+                    outputs=[stage3_output, stage3_status]
+                ).then(
+                    fn=lambda x: x,
+                    inputs=[stage3_output],
+                    outputs=[current_script_data]
+                )
+                
+                stage4_btn.click(
+                    fn=stage4_script_generation,
+                    inputs=[current_script_data, script_instructions],
+                    outputs=[stage4_output, stage4_status]
+                ).then(
+                    fn=lambda x: x,
+                    inputs=[stage4_output],
+                    outputs=[current_recording_data]
+                )
+                
+                stage5_btn.click(
+                    fn=stage5_recording,
+                    inputs=[current_recording_data, voice_settings],
+                    outputs=[stage5_output, stage极_status]
+                ).then(
+                    fn=lambda x: x,
+                    inputs=[stage5_output],
+                    outputs=[current_editing_data]
+                )
+                
+                stage6_btn.click(
+                    fn=stage6_audio_editing,
+                    inputs=[current_editing_data, music_settings],
+                    outputs=[stage6_output, stage6_status]
+                )
+                
+                stage7_btn.click(
+                    fn=stage7_finalize_podcast,
+                    inputs=[current_editing_data, upload_settings],
+                    outputs=[stage7_output, stage7_status]
+                ).then(
+                    fn=lambda x: x.get("podcast_description", "") if isinstance(x, dict) else "",
+                    inputs=[stage7_output],
+                    outputs=[podcast_description]
+                )
+                
+                download_btn.click(
+                    fn=lambda: "Download functionality would be implemented in a real system",
+                    inputs=[],
+                    outputs=[stage7_status]
+                )
     
     gr.Markdown("---")
     gr.Markdown("**Systems Status:**")

@@ -231,50 +231,40 @@ def extract_additional_metadata(text):
     
     return additional_metadata
 
-def format_metadata_display(metadata):
+def get_available_pdfs():
     """
-    Format metadata for better display in the UI with comprehensive information.
+    Returns a list of available PDF files in the data directory.
     """
-    if not metadata or "error" in metadata:
-        return metadata
+    # Updated path to the new location
+    data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
+    pdf_files = []
     
-    formatted = metadata.copy()
+    if not os.path.exists(data_path):
+        print(f"ERROR: The specified directory {data_path} does not exist.")
+        # Create the directory if it doesn't exist
+        try:
+            os.makedirs(data_path)
+            print(f"✓ Created PDF directory: {data_path}")
+            print("Please add PDF files to this directory and restart the application.")
+        except Exception as e:
+            print(f"Error creating directory: {e}")
+        return pdf_files
     
-    # Add source indicators with emojis
-    if formatted.get("author") != "Unknown":
-        source = "📄 metadata" if formatted.get("author_found_in_metadata", True) else "🔍 extracted from text"
-        formatted["author"] = f"{formatted['author']} ({source})"
+    print("Scanning for PDF files...")
+    for root, dirs, files in os.walk(data_path):
+        for filename in files:
+            if filename.endswith(".pdf"):
+                file_path = os.path.join(root, filename)
+                pdf_files.append(file_path)
+                print(f"Found: {filename}")
     
-    if formatted.get("publisher") != "Unknown":
-        source = "📄 metadata" if formatted.get("publisher_found_in_metadata", False) else "🔍 extracted from text"
-        formatted["publisher"] = f"{formatted['publisher']} ({source})"
+    if pdf_files:
+        print(f"✓ Found {len(pdf_files)} PDF files")
+    else:
+        print("✗ No PDF files found in directory")
+        print(f"Please add PDF files to: {data_path}")
     
-    # Clean up the text preview
-    if "text_sample" in formatted:
-        preview = formatted["text_sample"]
-        # Remove excessive whitespace and clean up
-        preview = re.sub(r'\s+', ' ', preview)
-        formatted["text_preview"] = preview[:500] + "..." if len(preview) > 500 else preview
-        del formatted["text_sample"]
-    
-    # Format lists for better display
-    if "authors_found" in formatted and formatted["authors_found"]:
-        formatted["all_authors_found"] = ", ".join(formatted["authors_found"])
-        del formatted["authors_found"]
-    
-    if "publishers_found" in formatted and formatted["publishers_found"]:
-        formatted["all_publishers_found"] = ", ".join(formatted["publishers_found"])
-        del formatted["publishers_found"]
-    
-    # Add extraction summary
-    if "pages_analyzed" in formatted:
-        formatted["extraction_summary"] = f"Analyzed {formatted['pages_analyzed']} pages for metadata"
-        del formatted["pages_analyzed"]
-    
-    return formatted
-
-# [The rest of the functions remain the same as before]
-# create_rag_system(), create_rag_system_for_pdf(), get_available_pdfs()
+    return pdf_files
 
 def create_rag_system():
     """
@@ -369,25 +359,3 @@ def create_rag_system_for_pdf(pdf_path):
     qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever, chain_type="stuff")
 
     return qa_chain
-
-def get_available_pdfs():
-    """
-    Returns a list of available PDF files in the data directory.
-    """
-    # Updated path to the new location
-    data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
-    pdf_files = []
-    
-    if not os.path.exists(data_path):
-        print(f"ERROR: The specified directory {data_path} does not exist.")
-        return pdf_files
-    
-    show_progress("Scanning for PDF files")
-    for root, dirs, files in os.walk(data_path):
-        for filename in files:
-            if filename.endswith(".pdf"):
-                file_path = os.path.join(root, filename)
-                pdf_files.append(file_path)
-    
-    print(f"✓ Found {len(pdf_files)} PDF files")
-    return pdf_files

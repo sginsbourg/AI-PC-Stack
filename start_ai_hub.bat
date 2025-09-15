@@ -26,6 +26,20 @@ if errorlevel 1 (
 echo ✓ Ollama is installed
 echo.
 
+echo Creating PDF directory...
+if not exist "pdf" (
+    mkdir pdf
+    echo ✓ Created PDF directory: .\pdf\
+    echo.
+    echo Please add your PDF files to the 'pdf' folder, then restart the application.
+    echo.
+    pause
+    exit /b 0
+) else (
+    echo ✓ PDF directory already exists: .\pdf\
+)
+
+echo.
 echo Setting up the virtual environment...
 if not exist "venv" (
     python -m venv venv
@@ -100,6 +114,21 @@ echo.
 echo IMPORTANT: Keep this window open while using the AI Hub.
 echo.
 
+echo Checking for PDF files...
+dir pdf\*.pdf >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo WARNING: No PDF files found in the 'pdf' directory!
+    echo.
+    echo Please add PDF files to the 'pdf' folder, then restart the application.
+    echo.
+    pause
+    exit /b 0
+) else (
+    echo ✓ PDF files found in directory
+)
+
+echo.
 echo Loading PDF files and initializing AI systems...
 echo [This may take 1-2 minutes...]
 echo - Scanning PDF directory...
