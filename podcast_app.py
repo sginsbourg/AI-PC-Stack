@@ -12,6 +12,11 @@ general_ai = Ollama(model="llama2")
 # Cache system
 podcast_cache = {}
 
+def create_podcast_demo():
+    with gr.Blocks(title="AI Podcast Generator") as podcast_demo:
+        # ... existing podcast_demo code ...
+    return podcast_demo
+
 def get_cache_key(stage, pdf_path=None):
     if pdf_path:
         pdf_hash = hashlib.md5(pdf_path.encode()).hexdigest()

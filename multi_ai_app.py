@@ -1,48 +1,39 @@
 import gradio as gr
 import os
-import sys
-import subprocess
 
-def launch_podcast_app():
-    """Launch the podcast generation application"""
-    try:
-        from podcast_app import podcast_demo
-        return podcast_demo
-    except Exception as e:
-        print(f"Error launching podcast app: {e}")
-        return gr.Markdown(f"# ❌ Error\nCould not launch Podcast App: {e}")
+# Import all application modules
+try:
+    from rag_app import create_rag_demo
+    rag_available = True
+except ImportError:
+    rag_available = False
+    print("RAG app not available")
 
-def launch_rag_app():
-    """Launch the RAG Q&A application"""
-    try:
-        from rag_app import rag_demo
-        return rag_demo
-    except Exception as e:
-        print(f"Error launching RAG app: {e}")
-        return gr.Markdown(f"# ❌ Error\nCould not launch RAG App: {e}")
+try:
+    from general_ai_app import create_general_ai_demo
+    general_ai_available = True
+except ImportError:
+    general_ai_available = False
+    print("General AI app not available")
 
-def launch_general_ai_app():
-    """Launch the General AI application"""
-    try:
-        from general_ai_app import general_ai_demo
-        return general_ai_demo
-    except Exception as e:
-        print(f"Error launching General AI app: {e}")
-        return gr.Markdown(f"# ❌ Error\nCould not launch General AI App: {e}")
+try:
+    from combined_app import create_combined_demo
+    combined_available = True
+except ImportError:
+    combined_available = False
+    print("Combined AI app not available")
 
-def launch_combined_app():
-    """Launch the Combined AI application"""
-    try:
-        from combined_app import combined_demo
-        return combined_demo
-    except Exception as e:
-        print(f"Error launching Combined AI app: {e}")
-        return gr.Markdown(f"# ❌ Error\nCould not launch Combined AI App: {e}")
+try:
+    from podcast_app import create_podcast_demo
+    podcast_available = True
+except ImportError:
+    podcast_available = False
+    print("Podcast app not available")
 
 # Custom CSS for better layout
 css = """
 .gate-container {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -53,9 +44,9 @@ css = """
     margin: 15px;
     text-align: center;
     color: white;
-    cursor: pointer;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
 }
 .app-card:hover {
     transform: translateY(-5px);
@@ -80,96 +71,117 @@ css = """
     gap: 20px;
     margin-top: 30px;
 }
-.header {
-    text-align: center;
-    margin-bottom: 40px;
-}
 .status-bar {
     background: #f8f9fa;
     padding: 15px;
     border-radius: 10px;
     margin-top: 30px;
 }
+.tab-button {
+    font-size: 16px;
+    padding: 12px 24px;
+}
+.disabled-card {
+    opacity: 0.6;
+    background: linear-gradient(135deg, #cccccc 0%, #999999 100%);
+}
 """
 
-with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
-    gr.Markdown("""
-    # 🚀 AI Hub - Application Gateway
-    ### Choose from our suite of AI-powered applications
-    """)
-    
+def create_gateway_tab():
+    """Create the gateway/home tab"""
     with gr.Column(elem_classes=["gate-container"]):
+        gr.Markdown("""
+        # 🚀 AI Hub - Application Gateway
+        ### Choose from our suite of AI-powered applications
+        """)
+        
         # Application Grid
         with gr.Row():
             with gr.Column(elem_classes=["app-grid"]):
-                # Podcast App Card - Using Column instead of Box
-                with gr.Column(elem_classes=["app-card"]):
+                # Podcast App Card
+                with gr.Column(elem_classes=["app-card"] if podcast_available else ["app-card", "disabled-card"]):
                     gr.Markdown("<div class='app-icon'>🎙️</div>")
                     gr.Markdown("<div class='app-title'>Podcast Generator</div>")
                     gr.Markdown("<div class='app-description'>Create professional podcasts from PDF documents with AI voices and music</div>")
-                    podcast_btn = gr.Button("Launch Podcast Studio", variant="primary", size="lg")
+                    if not podcast_available:
+                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
                 
                 # RAG App Card
-                with gr.Column(elem_classes=["app-card"]):
+                with gr.Column(elem_classes=["app-card"] if rag_available else ["app-card", "disabled-card"]):
                     gr.Markdown("<div class='app-icon'>📚</div>")
                     gr.Markdown("<div class='app-title'>RAG Q&A System</div>")
                     gr.Markdown("<div class='app-description'>Ask questions about your PDF documents using Retrieval-Augmented Generation</div>")
-                    rag_btn = gr.Button("Launch RAG System", variant="primary", size="lg")
+                    if not rag_available:
+                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
                 
                 # General AI Card
-                with gr.Column(elem_classes=["app-card"]):
+                with gr.Column(elem_classes=["app-card"] if general_ai_available else ["极-card", "disabled-card"]):
                     gr.Markdown("<div class='app-icon'>🌟</div>")
                     gr.Markdown("<div class='app-title'>General AI Assistant</div>")
                     gr.Markdown("<div class='app-description'>Chat with our general AI model for broad knowledge and creative tasks</div>")
-                    general_btn = gr.Button("Launch AI Assistant", variant="primary", size="lg")
+                    if not general_ai_available:
+                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
                 
                 # Combined AI Card
-                with gr.Column(elem_classes=["app-card"]):
+                with gr.Column(elem_classes=["app-card"] if combined_available else ["app-card", "disabled-card"]):
                     gr.Markdown("<div class='app-icon'>🤖</div>")
                     gr.Markdown("<div class='app-title'>Combined AI Systems</div>")
                     gr.Markdown("<div class='app-description'>Get answers from both RAG and General AI systems simultaneously</div>")
-                    combined_btn = gr.Button("Launch Combined AI", variant="primary", size="lg")
+                    if not combined_available:
+                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
         
         # Status and Info Section
         with gr.Column(elem_classes=["status-bar"]):
             gr.Markdown("### 📊 System Status")
             with gr.Row():
                 with gr.Column():
-                    gr.Markdown("**Available Applications:** 4")
-                    gr.Markdown("**PDF Files Found:** Checking...")
+                    gr.Markdown(f"**Available Applications:** {sum([rag_available, general_ai_available, combined_available, podcast_available])}/4")
+                    
+                    # Check if PDF directory exists and count PDFs
+                    pdf_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
+                    pdf_count = 0
+                    if os.path.exists(pdf_path):
+                        for root, dirs, files in os.walk(pdf_path):
+                            for filename in files:
+                                if filename.lower().endswith('.pdf'):
+                                    pdf_count += 1
+                    gr.Markdown(f"**PDF Files Found:** {pdf_count}")
+                    
                     gr.Markdown("**AI Models Loaded:** Llama2, Qwen:0.5b")
                 with gr.Column():
                     gr.Markdown("**System Version:** 1.0.0")
                     gr.Markdown("**Last Updated:** 2025-09-15")
-                    gr.Markdown("**Status:** ✅ Operational")
+                    status = "✅ Operational" if any([rag_available, general_ai_available, combined_available, podcast_available]) else "❌ No applications available"
+                    gr.Markdown(f"**Status:** {status}")
         
-        # Output area for the selected application
-        app_output = gr.HTML()
-    
-    # Connect buttons to their respective applications
-    podcast_btn.click(
-        fn=launch_podcast_app,
-        inputs=[],
-        outputs=[app_output]
-    )
-    
-    rag_btn.click(
-        fn=launch_rag_app,
-        inputs=[],
-        outputs=[app_output]
-    )
-    
-    general_btn.click(
-        fn=launch_general_ai_app,
-        inputs=[],
-        outputs=[app_output]
-    )
-    
-    combined_btn.click(
-        fn=launch_combined_app,
-        inputs=[],
-        outputs=[app_output]
-    )
+        gr.Markdown("""
+        ### 📋 How to use:
+        1. **Click on any tab above** to switch between applications
+        2. Each application works independently
+        3. You can have multiple applications open in different tabs
+        """)
+
+# Create the main demo with tabs
+with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
+    with gr.Tabs(elem_classes=["tab-button"]):
+        with gr.TabItem("🏠 Gateway", id="gateway"):
+            create_gateway_tab()
+        
+        if rag_available:
+            with gr.TabItem("📚 RAG System", id="rag"):
+                create_rag_demo()
+        
+        if general_ai_available:
+            with gr.TabItem("🌟 General AI", id="general_ai"):
+                create_general_ai_demo()
+        
+        if combined_available:
+            with gr.TabItem("🤖 Combined AI", id="combined"):
+                create_combined_demo()
+        
+        if podcast_available:
+            with gr.TabItem("🎙️ Podcast Generator", id="podcast"):
+                create_podcast_demo()
 
 if __name__ == "__main__":
     demo.launch(

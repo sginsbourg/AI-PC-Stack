@@ -6,6 +6,11 @@ from langchain_community.llms import Ollama
 rag_chain = create_rag_system()
 general_ai = Ollama(model="llama2")
 
+def create_combined_demo():
+    with gr.Blocks(title="Combined AI Systems") as combined_demo:
+        # ... existing combined_demo code ...
+    return combined_demo
+
 def query_rag_system(query):
     if not rag_chain:
         return "RAG system unavailable."

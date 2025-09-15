@@ -4,6 +4,11 @@ from langchain_community.llms import Ollama
 # Initialize General AI
 general_ai = Ollama(model="llama2")
 
+def create_general_ai_demo():
+    with gr.Blocks(title="General AI Assistant") as general_ai_demo:
+        # ... existing general_ai_demo code ...
+    return general_ai_demo
+
 def query_general_ai(query):
     try:
         response = general_ai.invoke(query)

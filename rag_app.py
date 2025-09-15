@@ -5,6 +5,11 @@ from langchain_community.llms import Ollama
 # Initialize RAG system
 rag_chain = create_rag_system()
 
+def create_rag_demo():
+    with gr.Blocks(title="RAG Q&A System") as rag_demo:
+        # ... existing rag_demo code ...
+    return rag_demo
+
 def query_rag_system(query):
     if not rag_chain:
         return "RAG system unavailable. Please check your PDF files."
