@@ -64,10 +64,10 @@ echo Launching AI Hub Gateway...
 echo URL: http://localhost:7860
 echo.
 echo The gateway will give you access to:
-echo - Podcast Generator (Audio)
-echo - RAG Q&A System (Documents)
-echo - General AI Assistant (Chat)
-echo - Combined AI Systems (Both)
+echo - Podcast Generator ^(Audio^)
+echo - RAG Q^&A System ^(Documents^)
+echo - General AI Assistant ^(Chat^)
+echo - Combined AI Systems ^(Both^)
 echo.
 
 python multi_ai_app.py
