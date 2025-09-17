@@ -4,6 +4,27 @@ import threading
 import time
 from show_progress import show_progress
 
+# Add to imports section
+try:
+    from agent_system import create_multi_agent_demo
+    multi_agent_available = True
+except ImportError:
+    multi_agent_available = False
+    print("Multi-Agent app not available")
+
+# Add to the app grid in create_gateway_tab()
+with gr.Column(elem_classes=["app-card"] if multi_agent_available else ["app-card", "disabled-card"]):
+    gr.Markdown("<div class='app-icon'>🤖</div>")
+    gr.Markdown("<div class='app-title'>Multi-Agent System</div>")
+    gr.Markdown("<div class='app-description'>Consult specialized AI agents for different types of tasks</div>")
+    if not multi_agent_available:
+        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
+
+# Add to the tab section
+if multi_agent_available:
+    with gr.TabItem("🤖 Multi-Agent", id="multi_agent"):
+        create_multi_agent_demo()
+
 # Import all application modules
 try:
     from rag_app import create_rag_demo
