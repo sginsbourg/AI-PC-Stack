@@ -1,36 +1,36 @@
-Starting AI Hub Master Launcher at Thu 09/18/2025  0:05:52.28 
+Starting AI Hub Master Launcher at Thu 09/18/2025  0:18:42.40 
 Environment: PATH=C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Program Files\Git\cmd;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\Program Files\Git\bin;C:\ffmpeg\bin;C:\Program Files\dotnet\;C:\Program Files\PowerShell\7\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\Scripts\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\;C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Users\sgins\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0-full_build-shared\bin;C:\Users\sgins\AppData\Local\Programs\cursor\resources\app\bin;!GIT_PATH!!PATHS_TO_ADD!;!GIT_PATH!;C:\Users\sgins\AppData\Local\Programs\Ollama;C:\Users\sgins\AppData\Local\Programs\Kiro\bin;C:\Users\sgins\AppData\Local\atom\bin;C:\Program Files\Markdown Monster 
-Time format:  0:05:52.31 
+Time format:  0:18:42.45 
  
 ======================================== 
        AI HUB MASTER LAUNCHER 
 ======================================== 
-Start time:  0:05:52.42 
+Start time:  0:18:42.58 
 Starting TextGen WebUI... 
 start_textgen.bat launched, errorlevel: 0 
-CalculateTime: start= 0:05:52.47, end= 0:05:52.51 
-CalculateTime: start_h=00, start_m=05, start_s=52, start_ms=47 
-CalculateTime: end_h=00, end_m=05, end_s=52, end_ms=51 
-CalculateTime: Numeric start_h=0, start_m=5, start_s=52, start_ms=47 
-CalculateTime: Numeric end_h=0, end_m=5, end_s=52, end_ms=51 
+CalculateTime: start= 0:18:42.64, end= 0:18:42.68 
+CalculateTime: start_h=00, start_m=18, start_s=42, start_ms=64 
+CalculateTime: end_h=00, end_m=18, end_s=42, end_ms=68 
+CalculateTime: Numeric start_h=0, start_m=18, start_s=42, start_ms=64 
+CalculateTime: Numeric end_h=0, end_m=18, end_s=42, end_ms=68 
 CalculateTime: Result elapsed_time=0.04 
 Done starting TextGen WebUI ... (0.04 sec) 
 Starting Ollama server... 
 start_ollama.bat launched, errorlevel: 0 
-CalculateTime: start= 0:05:52.84, end= 0:05:52.87 
-CalculateTime: start_h=00, start_m=05, start_s=52, start_ms=84 
-CalculateTime: end_h=00, end_m=05, end_s=52, end_ms=87 
-CalculateTime: Numeric start_h=0, start_m=5, start_s=52, start_ms=84 
-CalculateTime: Numeric end_h=0, end_m=5, end_s=52, end_ms=87 
-CalculateTime: Result elapsed_time=0.03 
-Done starting Ollama server ... (0.03 sec) 
+CalculateTime: start= 0:18:42.96, end= 0:18:42.98 
+CalculateTime: start_h=00, start_m=18, start_s=42, start_ms=96 
+CalculateTime: end_h=00, end_m=18, end_s=42, end_ms=98 
+CalculateTime: Numeric start_h=0, start_m=18, start_s=42, start_ms=96 
+CalculateTime: Numeric end_h=0, end_m=18, end_s=42, end_ms=98 
+CalculateTime: Result elapsed_time=0.02 
+Done starting Ollama server ... (0.02 sec) 
 Waiting for servers to initialize... 
 timeout completed, errorlevel: 0 
-CalculateTime: start= 0:05:53.07, end= 0:05:58.21 
-CalculateTime: start_h=00, start_m=05, start_s=53, start_ms=07 
-CalculateTime: end_h=00, end_m=05, end_s=58, end_ms=21 
-CalculateTime: Numeric start_h=0, start_m=5, start_s=53, start_ms=7 
-CalculateTime: Numeric end_h=0, end_m=5, end_s=58, end_ms=21 
-CalculateTime: Result elapsed_time=5.14 
-Done waiting for servers ... (5.14 sec) 
+CalculateTime: start= 0:18:43.19, end= 0:18:48.25 
+CalculateTime: start_h=00, start_m=18, start_s=43, start_ms=19 
+CalculateTime: end_h=00, end_m=18, end_s=48, end_ms=25 
+CalculateTime: Numeric start_h=0, start_m=18, start_s=43, start_ms=19 
+CalculateTime: Numeric end_h=0, end_m=18, end_s=48, end_ms=25 
+CalculateTime: Result elapsed_time=5.06 
+Done waiting for servers ... (5.06 sec) 
 Starting AI Hub Core... 
