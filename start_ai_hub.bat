@@ -12,11 +12,11 @@ echo.
 
 :: Start TextGen WebUI in parallel
 echo Starting TextGen WebUI...
-start /B start_textgen.bat
+start "TextGen WebUI" start_textgen.bat
 
 :: Start Ollama server in parallel
 echo Starting Ollama server...
-start /B start_ollama.bat
+start "Ollama Server" start_ollama.bat
 
 :: Wait briefly to ensure servers are starting
 timeout /t 5 /nobreak >nul
