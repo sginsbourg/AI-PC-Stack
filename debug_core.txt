@@ -1,0 +1,89 @@
+Starting AI Hub Core Launcher at Wed 09/17/2025 19:34:28.54 
+Environment: PATH=C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Program Files\Git\cmd;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\Program Files\Git\bin;C:\ffmpeg\bin;C:\Program Files\dotnet\;C:\Program Files\PowerShell\7\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\Scripts\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\;C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Users\sgins\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0-full_build-shared\bin;C:\Users\sgins\AppData\Local\Programs\cursor\resources\app\bin;;;C:\Users\sgins\AppData\Local\Programs\Ollama;C:\Users\sgins\AppData\Local\Programs\Kiro\bin;C:\Users\sgins\AppData\Local\atom\bin;C:\Program Files\Markdown Monster 
+Time format: 19:34:28.58 
+ 
+======================================== 
+       AI HUB CORE LAUNCHER 
+======================================== 
+Start time: 19:34:28.69 
+Changed directory to C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack, errorlevel: 0 
+Checking for Python... 
+where python completed, errorlevel: 0 
+CalculateTime: start=19:34:28.76, end=19:34:28.81 
+CalculateTime: start_h=19, start_m=34, start_s=28, start_ms=76 
+CalculateTime: end_h=19, end_m=34, end_s=28, end_ms=81 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=28, start_ms=76 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=28, end_ms=81 
+CalculateTime: Result elapsed_time=0.05 
+Done checking Python ... (0.05 sec) 
+Checking if Ollama is installed... 
+ollama --version completed, errorlevel: 0 
+CalculateTime: start=19:34:28.96, end=19:34:29.04 
+CalculateTime: start_h=19, start_m=34, start_s=28, start_ms=96 
+CalculateTime: end_h=19, end_m=34, end_s=29, end_ms=04 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=28, start_ms=96 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=29, end_ms=4 
+CalculateTime: Result elapsed_time=0.08 
+Done checking Ollama installation ... (0.08 sec) 
+✓ Ollama is installed 
+Setting up the virtual environment... 
+✓ Virtual environment already exists 
+CalculateTime: start=19:34:29.22, end=19:34:29.25 
+CalculateTime: start_h=19, start_m=34, start_s=29, start_ms=22 
+CalculateTime: end_h=19, end_m=34, end_s=29, end_ms=25 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=29, start_ms=22 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=29, end_ms=25 
+CalculateTime: Result elapsed_time=0.03 
+Done setting up virtual environment ... (0.03 sec) 
+Activating the virtual environment... 
+venv activation completed, errorlevel: 0 
+CalculateTime: start=19:34:29.42, end=19:34:29.48 
+CalculateTime: start_h=19, start_m=34, start_s=29, start_ms=42 
+CalculateTime: end_h=19, end_m=34, end_s=29, end_ms=48 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=29, start_ms=42 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=29, end_ms=48 
+CalculateTime: Result elapsed_time=0.06 
+Done activating virtual environment ... (0.06 sec) 
+Checking if dependencies are installed... 
+pip check completed, errorlevel: 0 
+✓ Dependencies already satisfied 
+CalculateTime: start=19:34:29.66, end=19:34:30.78 
+CalculateTime: start_h=19, start_m=34, start_s=29, start_ms=66 
+CalculateTime: end_h=19, end_m=34, end_s=30, end_ms=78 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=29, start_ms=66 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=30, end_ms=78 
+CalculateTime: Result elapsed_time=1.12 
+Done checking/installing dependencies ... (1.12 sec) 
+Checking TextGen WebUI... 
+curl check for TextGen WebUI, errorlevel: 7 
+WARNING: TextGen WebUI not responding at 19:34:33.07 
+CalculateTime: start=19:34:30.93, end=19:34:33.09 
+CalculateTime: start_h=19, start_m=34, start_s=30, start_ms=93 
+CalculateTime: end_h=19, end_m=34, end_s=33, end_ms=09 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=30, start_ms=93 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=33, end_ms=9 
+CalculateTime: Result elapsed_time=2.16 
+Done checking TextGen WebUI ... (2.16 sec) 
+Checking Ollama server... 
+tasklist check for Ollama, errorlevel: 0 
+CalculateTime: start=19:34:33.24, end=19:34:33.43 
+CalculateTime: start_h=19, start_m=34, start_s=33, start_ms=24 
+CalculateTime: end_h=19, end_m=34, end_s=33, end_ms=43 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=33, start_ms=24 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=33, end_ms=43 
+CalculateTime: Result elapsed_time=0.19 
+Done checking Ollama server ... (0.19 sec) 
+ 
+======================================== 
+       STARTING AI HUB GATEWAY 
+======================================== 
+Launching AI Hub Gateway... 
+URL: http://localhost:7860 (or next available port) 
+The gateway will give you access to: 
+- Podcast Generator (Audio) 
+- RAG Q&A System (Documents) 
+- General AI Assistant (Chat) 
+- Combined AI Systems (Both) 
+- Multi-Agent System (Specialized) 
+- Text Generation UI (Advanced LLM) 
+PDF processing will continue in the background. 

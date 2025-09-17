@@ -4,6 +4,7 @@ import os
 import threading
 import time
 import subprocess
+import atexit
 from show_progress import show_progress
 import psutil
 from flask import Flask, jsonify
@@ -55,6 +56,7 @@ rag_system_ready = False
 TEXTGEN_PATH = r"C:\Users\sgins\AI_STACK\tg-webui"
 TEXTGEN_PORT = 5001
 textgen_process = None
+status_server = None
 
 # Initialize system monitor
 system_monitor = SystemMonitor()
@@ -87,11 +89,21 @@ def health_check():
 
 def start_status_server():
     """Start the status server in a separate thread"""
-    status_app.run(port=5000, host='127.0.0.1', debug=False, use_reloader=False)
+    global status_server
+    from werkzeug.serving import make_server
+    start_time = time.time()
+    status_server = make_server('127.0.0.1', 5000, status_app)
+    status_server.serve_forever()
+    elapsed_time = time.time() - start_time
+    print(f"Done starting Flask status server ... ({elapsed_time:.1f} sec)")
 
-# Start status server
-status_thread = threading.Thread(target=start_status_server, daemon=True)
-status_thread.start()
+def stop_status_server():
+    """Stop the status server"""
+    global status_server
+    if status_server:
+        status_server.shutdown()
+        status_server = None
+        print("✓ Stopped Flask status server")
 
 def start_textgen_webui():
     """Start the text-generation-webui server in background on a different port"""
@@ -100,6 +112,7 @@ def start_textgen_webui():
         print("TextGen WebUI is already running.")
         return
     
+    start_time = time.time()
     try:
         os.chdir(TEXTGEN_PATH)
         cmd = [
@@ -109,15 +122,34 @@ def start_textgen_webui():
             '--api'
         ]
         textgen_process = subprocess.Popen(cmd, cwd=TEXTGEN_PATH, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(f"Started TextGen WebUI on http://127.0.0.1:{TEXTGEN_PORT}")
-        time.sleep(5)
+        time.sleep(3)
+        elapsed_time = time.time() - start_time
+        print(f"Done starting TextGen WebUI on http://127.0.0.1:{TEXTGEN_PORT} ... ({elapsed_time:.1f} sec)")
     except Exception as e:
-        print(f"Error starting TextGen WebUI: {e}")
+        elapsed_time = time.time() - start_time
+        print(f"Error starting TextGen WebUI: {e} ... ({elapsed_time:.1f} sec)")
+
+def stop_textgen_webui():
+    """Stop the text-generation-webui process"""
+    global textgen_process
+    if textgen_process and textgen_process.poll() is None:
+        textgen_process.terminate()
+        try:
+            textgen_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            textgen_process.kill()
+        print("✓ Stopped TextGen WebUI")
+    textgen_process = None
 
 def background_pdf_processing():
     """Process PDFs in the background while UI is running with progress tracking"""
     global pdf_processing_complete, pdf_count, processed_count, rag_system_ready
     
+    if pdf_processing_complete:
+        print("✓ PDF processing already complete, skipping")
+        return
+    
+    start_time = time.time()
     show_progress("Starting background PDF processing")
     
     pdf_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
@@ -134,30 +166,49 @@ def background_pdf_processing():
     
     for pdf_file in pdf_files:
         try:
-            time.sleep(0.5)
+            time.sleep(0.3)
             processed_count += 1
+            show_progress(f"✓ Successfully loaded: {os.path.basename(pdf_file)}")
         except Exception as e:
             print(f"Error processing {pdf_file}: {e}")
     
     pdf_processing_complete = True
-    show_progress(f"Background processing complete. Processed {pdf_count} PDFs")
+    elapsed_time = time.time() - start_time
+    show_progress(f"Done background processing. Processed {pdf_count} PDFs ... ({elapsed_time:.1f} sec)")
     
     if rag_available and pdf_count > 0:
         show_progress("Initializing RAG system in background")
+        rag_start_time = time.time()
         try:
             from rag_system import create_rag_system
             rag_chain = create_rag_system()
             rag_system_ready = rag_chain is not None
+            elapsed_rag_time = time.time() - rag_start_time
             if rag_system_ready:
-                show_progress("RAG system initialized successfully")
+                show_progress(f"Done initializing RAG system successfully ... ({elapsed_rag_time:.1f} sec)")
             else:
-                show_progress("RAG system initialization failed")
+                show_progress(f"RAG system initialization failed ... ({elapsed_rag_time:.1f} sec)")
         except Exception as e:
-            show_progress(f"RAG system error: {str(e)}")
+            elapsed_rag_time = time.time() - rag_start_time
+            show_progress(f"RAG system error: {str(e)} ... ({elapsed_rag_time:.1f} sec)")
+
+# Register cleanup functions
+atexit.register(stop_textgen_webui)
+atexit.register(stop_status_server)
 
 # Start background processing thread
+start_time = time.time()
 processing_thread = threading.Thread(target=background_pdf_processing, daemon=True)
 processing_thread.start()
+elapsed_time = time.time() - start_time
+print(f"Done starting PDF processing thread ... ({elapsed_time:.1f} sec)")
+
+# Start status server
+start_time = time.time()
+status_thread = threading.Thread(target=start_status_server, daemon=True)
+status_thread.start()
+elapsed_time = time.time() - start_time
+print(f"Done starting status server thread ... ({elapsed_time:.1f} sec)")
 
 # Custom CSS for enhanced Gateway tab
 css = """
@@ -240,6 +291,7 @@ input[type=range] {
 
 def create_enhanced_gateway_tab():
     """Create an enhanced Gateway tab with improved visuals"""
+    start_time = time.time()
     with gr.Column(elem_classes=["gate-container"]):
         gr.Markdown(
             """
@@ -344,6 +396,8 @@ def create_enhanced_gateway_tab():
         </script>
         """)
     
+    elapsed_time = time.time() - start_time
+    print(f"Done creating Gateway tab ... ({elapsed_time:.1f} sec)")
     return {
         "progress_bar": progress_bar,
         "cpu_usage": cpu_usage,
@@ -355,6 +409,7 @@ def create_enhanced_gateway_tab():
     }
 
 # Create the main demo with tabs
+start_time = time.time()
 with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
     with gr.Tabs(elem_classes=["tab-button"]):
         with gr.TabItem("🏠 Gateway", id="gateway"):
@@ -389,10 +444,13 @@ with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
                 <small>Embedded Text Generation WebUI (Port {TEXTGEN_PORT})</small>
             </p>
             """)
+elapsed_time = time.time() - start_time
+print(f"Done creating Gradio Blocks ... ({elapsed_time:.1f} sec)")
 
 if __name__ == "__main__":
+    total_start_time = time.time()
     print("🚀 Launching AI Hub Gateway...")
-    print("🌐 UI will be available at: http://localhost:7860")
+    print("🌐 UI will be available at: http://localhost:7860 (or next available port)")
     print("📊 Status API available at: http://localhost:5000")
     print(f"🗣️ TextGen WebUI will launch on: http://127.0.0.1:{TEXTGEN_PORT}")
     
@@ -400,6 +458,7 @@ if __name__ == "__main__":
     start_textgen_webui()
     
     # Try a range of ports to avoid conflicts
+    start_time = time.time()
     port_range = range(7860, 7870)
     server_launched = False
     for port in port_range:
@@ -413,16 +472,22 @@ if __name__ == "__main__":
                 prevent_thread_lock=True
             )
             server_launched = True
-            print(f"✓ AI Hub launched successfully on http://127.0.0.1:{port}")
+            elapsed_time = time.time() - start_time
+            print(f"✓ AI Hub launched successfully on http://127.0.0.1:{port} ... ({elapsed_time:.1f} sec)")
             break
         except OSError as e:
             print(f"Port {port} is in use, trying next port...")
             continue
     
     if not server_launched:
-        print("ERROR: Could not find an available port in range 7860-7869.")
+        elapsed_time = time.time() - start_time
+        print(f"ERROR: Could not find an available port in range 7860-7869 ... ({elapsed_time:.1f} sec)")
         print("Please ensure no other applications are using these ports and try again.")
     
-    # Cleanup on exit
-    if textgen_process:
-        textgen_process.terminate()
+    # Ensure cleanup on exit
+    stop_textgen_webui()
+    stop_status_server()
+    demo.close()
+    
+    total_elapsed_time = time.time() - total_start_time
+    print(f"Done executing AI Hub Gateway ... ({total_elapsed_time:.1f} sec)")

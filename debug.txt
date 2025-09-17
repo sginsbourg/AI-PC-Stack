@@ -1,0 +1,10 @@
+[Wed 09/17/2025 19:34:23.81] Starting start_textgen.bat 
+[Wed 09/17/2025 19:34:23.81] Start time: 19:34:23.81 
+[Wed 09/17/2025 19:34:23.86] Launched start_windows.bat 
+[Wed 09/17/2025 19:34:28.32] CalculateTime: start=19:34:23.87, end=19:34:28.32 
+[Wed 09/17/2025 19:34:28.46] CalculateTime result: 4.45 sec 
+[Wed 09/17/2025 19:34:28.48] Wait completed in 4.45 sec 
+[Wed 09/17/2025 19:34:28.51] CalculateTime: start=19:34:23.81, end=19:34:28.51 
+[Wed 09/17/2025 19:34:28.52] CalculateTime result: 4.70 sec 
+[Wed 09/17/2025 19:34:28.55] Total TextGen startup: 4.70 sec 
+[Wed 09/17/2025 19:34:28.60] Ending start_textgen.bat 

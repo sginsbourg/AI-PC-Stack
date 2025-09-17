@@ -1,0 +1,17 @@
+Starting Ollama Server Launcher at Wed 09/17/2025 19:34:24.40 
+Environment: PATH=C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Program Files\Git\cmd;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\Program Files\Git\bin;C:\ffmpeg\bin;C:\Program Files\dotnet\;C:\Program Files\PowerShell\7\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\Scripts\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\;C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Users\sgins\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0-full_build-shared\bin;C:\Users\sgins\AppData\Local\Programs\cursor\resources\app\bin;!GIT_PATH!!PATHS_TO_ADD!;!GIT_PATH!;C:\Users\sgins\AppData\Local\Programs\Ollama;C:\Users\sgins\AppData\Local\Programs\Kiro\bin;C:\Users\sgins\AppData\Local\atom\bin;C:\Program Files\Markdown Monster 
+Time format: 19:34:24.43 
+ 
+Checking if Ollama is running... 
+Start time: 19:34:24.48 
+tasklist check, errorlevel: 0 
+Done starting Ollama server ... (0.06 sec) 
+✓ Ollama server started 
+✓ Ollama server is already running 
+CalculateTime: start=19:34:24.48, end=19:34:24.87 
+CalculateTime: start_h=19, start_m=34, start_s=24, start_ms=48 
+CalculateTime: end_h=19, end_m=34, end_s=24, end_ms=87 
+CalculateTime: Numeric start_h=19, start_m=34, start_s=24, start_ms=48 
+CalculateTime: Numeric end_h=19, end_m=34, end_s=24, end_ms=87 
+CalculateTime: Result elapsed_time=0.39 
+Done checking Ollama ... (0.39 sec) 
