@@ -1,6 +1,10 @@
 import gradio as gr
 from rag_system import get_available_pdfs, extract_comprehensive_metadata
-from langchain_community.llms import Ollama
+try:
+    from langchain_ollama import OllamaLLM
+except ImportError:
+    from langchain_community.llms import Ollama
+    print("Warning: Using deprecated OllamaLLM. Install/upgrade langchain-ollama.")
 import os
 import datetime
 import hashlib
@@ -8,7 +12,7 @@ import re
 import PyPDF2
 
 # Initialize AI systems
-general_ai = Ollama(model="llama2")
+general_ai = OllamaLLM(model="llama2")
 
 # Cache system
 podcast_cache = {}
@@ -109,164 +113,67 @@ def extract_author_publisher_from_text(text):
             for i in range(1, len(match.groups()) + 1):
                 if match.group(i):
                     potential_publisher = match.group(i).strip()
-                    # Clean and validate publisher name
-                    potential_publisher = re.sub(r'[^a-zA-Z\s&]', '', potential_publisher).strip()
+                    potential_publisher = re.sub(r'[^a-zA-Z\s&.]', '', potential_publisher).strip()
                     if (len(potential_publisher) > 3 and
-                        potential_publisher.lower() not in ['unknown', 'unknown publisher'] and
-                        not any(word in potential_publisher.lower() for word in ['author', 'page', 'chapter', 'section'])):
+                        potential_publisher.lower() not in ['unknown', 'anonymous'] and
+                        not any(word in potential_publisher.lower() for word in ['author', 'by', 'written'])):
                         publishers.append(potential_publisher)
     
-    # Remove duplicates and select the most likely candidates
-    authors = list(dict.fromkeys(authors))  # Preserve order while removing duplicates
-    publishers = list(dict.fromkeys(publishers))
-    
-    # Select the most prominent author (first found or most mentioned)
+    # Select most likely author
     if authors:
-        author = authors[0]  # Take the first found author
+        # Prioritize names with more occurrences or earlier in document
+        author_counts = {}
+        for a in authors:
+            author_counts[a] = author_counts.get(a, 0) + 1
+        author = max(author_counts, key=author_counts.get)
     
-    # Select the most prominent publisher
+    # Select most likely publisher
     if publishers:
-        publisher = publishers[0]  # Take the first found publisher
+        publisher_counts = {}
+        for p in publishers:
+            publisher_counts[p] = publisher_counts.get(p, 0) + 1
+        publisher = max(publisher_counts, key=publisher_counts.get)
     
-    return author, publisher, authors, publishers
+    return author, publisher
 
-def extract_text_from_pdf(pdf_path, max_pages=5):
+def extract_comprehensive_metadata(pdf_path):
     """
-    Extract text from the first few pages of a PDF for metadata analysis.
+    Extract comprehensive metadata from a PDF file.
     """
+    metadata = {}
     try:
-        text_content = ""
         with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            pages_to_read = min(max_pages, len(pdf_reader.pages))
+            pdf = PyPDF2.PdfReader(file)
+            metadata = pdf.metadata or {}
             
-            for i in range(pages_to_read):
-                try:
-                    page_text = pdf_reader.pages[i].extract_text()
-                    if page_text:
-                        text_content += page_text + "\n\n"
-                except Exception as e:
-                    continue
-        
-        return text_content
+            # Convert metadata to a clean dictionary
+            clean_metadata = {}
+            for key, value in metadata.items():
+                clean_key = key.lstrip('/')
+                clean_metadata[clean_key] = value
+            
+            # Extract text for additional analysis
+            full_text = ""
+            for page in pdf.pages:
+                page_text = page.extract_text() or ""
+                full_text += page_text + "\n"
+            
+            # Extract author and publisher from text if not in metadata
+            author, publisher = extract_author_publisher_from_text(full_text)
+            if author and 'Author' not in clean_metadata:
+                clean_metadata['Author'] = author
+            if publisher and 'Publisher' not in clean_metadata:
+                clean_metadata['Publisher'] = publisher
+            
+            return clean_metadata
+    
     except Exception as e:
-        print(f"Error extracting text from PDF: {e}")
-        return ""
+        return {"error": f"Metadata extraction failed: {str(e)}"}
 
 def enhance_metadata_with_text_analysis(pdf_data):
     """
-    Enhance PDF metadata by analyzing text content for missing author/publisher info.
+    Enhance PDF metadata with text analysis.
     """
-    if "error" in pdf_data or not pdf_data.get("pdf_path"):
-        return pdf_data
-    
-    pdf_path = pdf_data["pdf_path"]
-    
-    # Check if we need to extract author/publisher from text
-    needs_author_extraction = (
-        "author" not in pdf_data or 
-        pdf_data.get("author") in ['Unknown', ''] or
-        pdf_data.get("author_found_in_metadata", False) == False
-    )
-    
-    needs_publisher_extraction = (
-        "publisher" not in pdf_data or 
-        pdf_data.get("publisher") in ['Unknown', ''] or
-        pdf_data.get("publisher_found_in_metadata", False) == False
-    )
-    
-    if needs_author_extraction or needs_publisher_extraction:
-        # Extract text from first few pages
-        text_content = extract_text_from_pdf(pdf_path, max_pages=5)
-        
-        if text_content:
-            author_from_text, publisher_from_text, all_authors, all_publishers = extract_author_publisher_from_text(text_content)
-            
-            # Update author information if needed
-            if needs_author_extraction and author_from_text:
-                pdf_data["author"] = author_from_text
-                pdf_data["author_found_in_metadata"] = False
-                pdf_data["author_source"] = "extracted_from_text"
-                pdf_data["authors_found"] = all_authors
-            
-            # Update publisher information if needed
-            if needs_publisher_extraction and publisher_from_text:
-                pdf_data["publisher"] = publisher_from_text
-                pdf_data["publisher_found_in_metadata"] = False
-                pdf_data["publisher_source"] = "extracted_from_text"
-                pdf_data["publishers_found"] = all_publishers
-            
-            # Add text analysis metadata
-            pdf_data["text_analysis_performed"] = True
-            pdf_data["text_analysis_date"] = datetime.datetime.now().isoformat()
-            pdf_data["pages_analyzed_for_text"] = min(5, len(PyPDF2.PdfReader(open(pdf_path, 'rb')).pages))
-    
-    return pdf_data
-
-def manual_check_pdfs():
-    data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
-    pdf_files = []
-    
-    try:
-        if os.path.exists(data_path):
-            for root, dirs, files in os.walk(data_path):
-                for filename in files:
-                    if filename.lower().endswith('.pdf'):
-                        file_path = os.path.join(root, filename)
-                        pdf_files.append(file_path)
-    except Exception as e:
-        print(f"Manual check error: {e}")
-    
-    return pdf_files
-
-def get_pdf_list():
-    pdf_files = get_available_pdfs()
-    if not pdf_files:
-        pdf_files = manual_check_pdfs()
-    
-    return pdf_files
-
-def refresh_pdf_list():
-    pdf_files = get_available_pdfs()
-    if not pdf_files:
-        pdf_files = manual_check_pdfs()
-    
-    if pdf_files:
-        return gr.Dropdown(choices=pdf_files, value=pdf_files[0], label=f"Available PDFs ({len(pdf_files)} found)")
-    else:
-        return gr.Dropdown(choices=[], value=None, label="No PDF files found")
-
-def stage1_select_pdf(pdf_path):
-    if not pdf_path:
-        return {"error": "Please select a PDF file."}, None, None
-    
-    cache_key = get_cache_key("stage1", pdf_path)
-    cached_result = load_from_cache(cache_key)
-    
-    if cached_result:
-        return cached_result, pdf_path, "PDF loaded from cache"
-    
-    try:
-        if not os.path.exists(pdf_path):
-            return {"error": f"PDF file not found: {pdf_path}"}, None, "PDF not found"
-        
-        pdf_name = os.path.basename(pdf_path)
-        file_size = os.path.getsize(pdf_path)
-        
-        result = {
-            "pdf_path": pdf_path,
-            "pdf_name": pdf_name,
-            "file_size": file_size,
-            "status": "selected"
-        }
-        
-        save_to_cache(cache_key, result)
-        return result, pdf_path, "PDF selected successfully"
-        
-    except Exception as e:
-        return {"error": f"Error selecting PDF: {str(e)}"}, None, f"Error: {str(e)}"
-
-def stage2_analyze_pdf(pdf_data):
     if isinstance(pdf_data, str):
         return {"error": pdf_data}, "Invalid PDF data"
     

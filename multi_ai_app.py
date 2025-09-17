@@ -3,6 +3,9 @@ import os
 import threading
 import time
 from show_progress import show_progress
+import psutil
+from flask import Flask, jsonify
+from system_monitor import SystemMonitor
 
 # Import all application modules FIRST
 try:
@@ -44,26 +47,77 @@ except ImportError:
 # Global variables for background processing
 pdf_processing_complete = False
 pdf_count = 0
+processed_count = 0
 rag_system_ready = False
 
+# Initialize system monitor
+system_monitor = SystemMonitor()
+
+# Create status server
+status_app = Flask(__name__)
+
+@status_app.route('/progress')
+def get_progress():
+    """Get PDF processing progress"""
+    progress = (processed_count / pdf_count * 100) if pdf_count > 0 else 0
+    return jsonify({
+        'progress': progress,
+        'complete': pdf_processing_complete,
+        'pdf_count': pdf_count,
+        'processed_count': processed_count,
+        'rag_ready': rag_system_ready,
+        'timestamp': time.time()
+    })
+
+@status_app.route('/system')
+def get_system_stats():
+    """Get system statistics"""
+    return jsonify(system_monitor.get_stats())
+
+@status_app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy", "timestamp": time.time()})
+
+def start_status_server():
+    """Start the status server in a separate thread"""
+    status_app.run(port=5000, host='127.0.0.1', debug=False, use_reloader=False)
+
+# Start status server
+status_thread = threading.Thread(target=start_status_server, daemon=True)
+status_thread.start()
+
 def background_pdf_processing():
-    """Process PDFs in the background while UI is running"""
-    global pdf_processing_complete, pdf_count, rag_system_ready
+    """Process PDFs in the background while UI is running with progress tracking"""
+    global pdf_processing_complete, pdf_count, processed_count, rag_system_ready
     
     show_progress("Starting background PDF processing")
     
     # Check PDF directory and count files
     pdf_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
+    pdf_files = []
+    
     if os.path.exists(pdf_path):
         for root, dirs, files in os.walk(pdf_path):
             for filename in files:
                 if filename.lower().endswith('.pdf'):
-                    pdf_count += 1
-                    # Simulate processing each PDF
-                    time.sleep(0.5)  # Simulate work
+                    pdf_files.append(os.path.join(root, filename))
+    
+    pdf_count = len(pdf_files)
+    processed_count = 0
+    
+    # Process each PDF with progress tracking
+    for pdf_file in pdf_files:
+        try:
+            # Simulate processing each PDF
+            time.sleep(0.5)  # Simulate work
+            processed_count += 1
+            
+        except Exception as e:
+            print(f"Error processing {pdf_file}: {e}")
     
     pdf_processing_complete = True
-    show_progress(f"Background processing complete. Found {pdf_count} PDFs")
+    show_progress(f"Background processing complete. Processed {pdf_count} PDFs")
     
     # After PDFs are processed, initialize RAG system if needed
     if rag_available and pdf_count > 0:
@@ -83,166 +137,207 @@ def background_pdf_processing():
 processing_thread = threading.Thread(target=background_pdf_processing, daemon=True)
 processing_thread.start()
 
-# Custom CSS for better layout
+# Custom CSS for enhanced Gateway tab
 css = """
 .gate-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
-}
-.app-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 15px;
     padding: 30px;
-    margin: 15px;
-    text-align: center;
-    color: white;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-}
-.app-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-}
-.app-icon {
-    font-size: 48px;
-    margin-bottom: 15px;
-}
-.app-title {
-    font-size: 24px;
-    font-weight: bold;
-    margin-bottom: 10px;
-}
-.app-description {
-    font-size: 16px;
-    opacity: 0.9;
-}
-.app-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    margin-top: 30px;
-}
-.status-bar {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 10px;
-    margin-top: 30px;
+    background: linear-gradient(135deg, #e6f0ff 0%, #ffffff 100%);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 50, 0.1);
+    font-family: 'Arial', sans-serif;
 }
 .tab-button {
-    font-size: 16px;
-    padding: 12px 24px;
+    background: #2563eb;
+    color: white;
+    border-radius: 8px;
+    padding: 10px 20px;
+    transition: background 0.3s ease;
 }
-.disabled-card {
-    opacity: 0.6;
-    background: linear-gradient(135deg, #cccccc 0%, #999999 100%);
+.tab-button:hover {
+    background: #1e40af;
 }
-.processing-indicator {
-    background: #fff3cd;
-    border: 1px solid #ffeaa7;
-    border-radius: 5px;
-    padding: 10px;
-    margin: 10px 0;
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 50, 0.05);
+}
+.card h3 {
+    color: #1e3a8a;
+    font-size: 1.5em;
+    margin-bottom: 15px;
+}
+.progress-bar-label {
+    font-weight: bold;
+    color: #1e3a8a;
+    margin-bottom: 10px;
+}
+input[type=range] {
+    accent-color: #2563eb;
+}
+.button-group button {
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    margin: 0 5px;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+.button-group button:hover {
+    background: #1e40af;
+    transform: translateY(-2px);
+}
+.accordion {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 15px;
+}
+.accordion h3 {
+    color: #1e3a8a;
+}
+@media (max-width: 768px) {
+    .gate-container {
+        padding: 15px;
+    }
+    .card {
+        padding: 15px;
+    }
 }
 """
 
-def create_gateway_tab():
-    """Create the gateway/home tab"""
+def create_enhanced_gateway_tab():
+    """Create an enhanced Gateway tab with improved visuals"""
     with gr.Column(elem_classes=["gate-container"]):
-        gr.Markdown("""
-        # 🚀 AI Hub - Application Gateway
-        ### Choose from our suite of AI-powered applications
-        """)
+        gr.Markdown(
+            """
+            # 🚀 AI Hub Gateway
+            ### Your Central Hub for Advanced AI Applications
+            Welcome to the AI Hub! Monitor system performance and access specialized AI tools.
+            """,
+            elem_classes=["card"]
+        )
         
-        # Processing status indicator
-        with gr.Column(visible=not pdf_processing_complete, elem_classes=["processing-indicator"]):
+        # System status section
+        with gr.Row():
+            with gr.Column(scale=2):
+                gr.Markdown("### System Status", elem_classes=["card", "card-header"])
+                progress_bar = gr.Slider(
+                    minimum=0,
+                    maximum=100,
+                    value=0,
+                    label="PDF Processing Progress",
+                    interactive=False,
+                    elem_classes=["progress-bar"]
+                )
+                cpu_usage = gr.Slider(
+                    minimum=0,
+                    maximum=100,
+                    value=0,
+                    label="CPU Usage %",
+                    interactive=False
+                )
+                memory_usage = gr.Slider(
+                    minimum=0,
+                    maximum=100,
+                    value=0,
+                    label="Memory Usage %",
+                    interactive=False
+                )
+            
+            with gr.Column(scale=1):
+                gr.Markdown("### System Details", elem_classes=["card", "card-header"])
+                status_df = gr.Dataframe(
+                    headers=["Metric", "Value"],
+                    value=[["Status", "Initializing..."]],
+                    interactive=False,
+                    elem_classes=["card"]
+                )
+        
+        # Action buttons
+        with gr.Row(elem_classes=["button-group"]):
+            refresh_btn = gr.Button("🔄 Refresh", variant="primary")
+            settings_btn = gr.Button("⚙️ Settings", variant="secondary")
+            help_btn = gr.Button("❓ Help", variant="secondary")
+        
+        # Tutorial section
+        with gr.Accordion("📚 Getting Started Guide", open=False, elem_classes=["accordion"]):
             gr.Markdown("""
-            ⏳ **Background Processing**
-            PDF files are being processed in the background. 
-            You can continue using the interface while this completes.
+            ### How to make the most of your AI Hub:
+            
+            1. **Add PDF Files**: Place your documents in the `pdf` folder to enable RAG capabilities
+            2. **Start Simple**: Begin with the General AI assistant for broad queries
+            3. **Use Specialized Tools**: 
+               - Podcast Generator for audio content from documents
+               - RAG System for document-specific questions
+               - Multi-Agent for specialized perspectives
+            4. **Combine Power**: Use the Combined AI tab to get multiple perspectives on important questions
+            
+            **Pro Tip**: The system processes PDFs in the background. You can start using other features immediately!
             """)
         
-        # Application Grid
-        with gr.Row():
-            with gr.Column(elem_classes=["app-grid"]):
-                # Podcast App Card
-                with gr.Column(elem_classes=["app-card"] if podcast_available else ["app-card", "disabled-card"]):
-                    gr.Markdown("<div class='app-icon'>🎙️</div>")
-                    gr.Markdown("<div class='app-title'>Podcast Generator</div>")
-                    gr.Markdown("<div class='app-description'>Create professional podcasts from PDF documents with AI voices and music</div>")
-                    if not podcast_available:
-                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
-                
-                # RAG App Card
-                rag_status = "RAG Q&A System" if rag_system_ready else "RAG Q&A (Processing...)"
-                with gr.Column(elem_classes=["app-card"] if rag_available and rag_system_ready else ["app-card", "disabled-card"]):
-                    gr.Markdown("<div class='app-icon'>📚</div>")
-                    gr.Markdown(f"<div class='app-title'>{rag_status}</div>")
-                    gr.Markdown("<div class='app-description'>Ask questions about your PDF documents using Retrieval-Augmented Generation</div>")
-                    if not rag_available:
-                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
-                    elif not rag_system_ready:
-                        gr.Markdown("<div style='color: #ffc107; margin-top: 10px;'>⏳ Processing PDFs...</div>")
-                
-                # General AI Card
-                with gr.Column(elem_classes=["app-card"] if general_ai_available else ["app-card", "disabled-card"]):
-                    gr.Markdown("<div class='app-icon'>🌟</div>")
-                    gr.Markdown("<div class='app-title'>General AI Assistant</div>")
-                    gr.Markdown("<div class='app-description'>Chat with our general AI model for broad knowledge and creative tasks</div>")
-                    if not general_ai_available:
-                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
-                
-                # Combined AI Card
-                combined_status = "Combined AI Systems" if rag_system_ready else "Combined AI (Processing...)"
-                with gr.Column(elem_classes=["app-card"] if combined_available and rag_system_ready else ["app-card", "disabled-card"]):
-                    gr.Markdown("<div class='app-icon'>🤖</div>")
-                    gr.Markdown(f"<div class='app-title'>{combined_status}</div>")
-                    gr.Markdown("<div class='app-description'>Get answers from both RAG and General AI systems simultaneously</div>")
-                    if not combined_available:
-                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
-                    elif not rag_system_ready:
-                        gr.Markdown("<div style='color: #ffc107; margin-top: 10px;'>⏳ Waiting for RAG...</div>")
-                
-                # Multi-Agent App Card
-                with gr.Column(elem_classes=["app-card"] if multi_agent_available else ["app-card", "disabled-card"]):
-                    gr.Markdown("<div class='app-icon'>🤖</div>")
-                    gr.Markdown("<div class='app-title'>Multi-Agent System</div>")
-                    gr.Markdown("<div class='app-description'>Consult specialized AI agents for different types of tasks</div>")
-                    if not multi_agent_available:
-                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
-        
-        # Status and Info Section
-        with gr.Column(elem_classes=["status-bar"]):
-            gr.Markdown("### 📊 System Status")
-            with gr.Row():
-                with gr.Column():
-                    available_apps = sum([rag_available and rag_system_ready, general_ai_available, combined_available and rag_system_ready, podcast_available, multi_agent_available])
-                    gr.Markdown(f"**Available Applications:** {available_apps}/5")
+        # Add JavaScript for real-time updates
+        gr.HTML("""
+        <script>
+        // Function to update progress bar
+        function updateProgress() {
+            fetch('http://localhost:5000/progress')
+                .then(response => response.json())
+                .then(data => {
+                    // Update progress bar if it exists
+                    const progressBar = document.querySelector('input[type="range"]');
+                    if (progressBar && data.progress) {
+                        progressBar.value = data.progress;
+                        progressBar.previousElementSibling.innerText = `PDF Processing Progress: ${Math.round(data.progress)}%`;
+                    }
                     
-                    # PDF count with real-time updates
-                    gr.Markdown(f"**PDF Files Found:** {pdf_count} {'(processing...)' if not pdf_processing_complete else ''}")
+                    // Update system stats
+                    fetch('http://localhost:5000/system')
+                        .then(response => response.json())
+                        .then(systemData => {
+                            // Update CPU and memory usage
+                            const cpuSlider = document.querySelector('input[aria-label="CPU Usage %"]');
+                            const memorySlider = document.querySelector('input[aria-label="Memory Usage %"]');
+                            
+                            if (cpuSlider) cpuSlider.value = systemData.cpu;
+                            if (memorySlider) memorySlider.value = systemData.memory;
+                        });
                     
-                    gr.Markdown("**AI Models Loaded:** Llama2, Qwen:0.5b")
-                with gr.Column():
-                    gr.Markdown("**System Version:** 1.0.0")
-                    gr.Markdown("**Last Updated:** 2025-09-15")
-                    status = "✅ Operational" if any([rag_available, general_ai_available, combined_available, podcast_available, multi_agent_available]) else "❌ No applications available"
-                    gr.Markdown(f"**Status:** {status}")
+                    if (data.progress < 100) {
+                        setTimeout(updateProgress, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.log('Status server not available:', error);
+                    setTimeout(updateProgress, 5000);
+                });
+        }
         
-        gr.Markdown("""
-        ### 📋 How to use:
-        1. **Click on any tab above** to switch between applications
-        2. Each application works independently
-        3. You can have multiple applications open in different tabs
-        4. PDF processing continues in the background
+        // Start progress updates when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(updateProgress, 1000);
+        });
+        </script>
         """)
+    
+    return {
+        "progress_bar": progress_bar,
+        "cpu_usage": cpu_usage,
+        "memory_usage": memory_usage,
+        "status_df": status_df,
+        "refresh_btn": refresh_btn,
+        "settings_btn": settings_btn,
+        "help_btn": help_btn
+    }
 
 # Create the main demo with tabs
 with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
     with gr.Tabs(elem_classes=["tab-button"]):
         with gr.TabItem("🏠 Gateway", id="gateway"):
-            create_gateway_tab()
+            gateway_components = create_enhanced_gateway_tab()
         
         if rag_available:
             with gr.TabItem("📚 RAG System", id="rag"):
@@ -267,6 +362,7 @@ with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
 if __name__ == "__main__":
     print("🚀 Launching AI Hub Gateway...")
     print("🌐 UI will be available at: http://localhost:7860")
+    print("📊 Status API available at: http://localhost:5000")
     print("⏳ PDF processing will continue in the background")
     
     demo.launch(
@@ -275,4 +371,3 @@ if __name__ == "__main__":
         inbrowser=True,
         share=False
     )
-    

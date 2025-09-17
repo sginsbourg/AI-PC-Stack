@@ -2,7 +2,11 @@ import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_community.llms import Ollama
+try:
+    from langchain_ollama import OllamaLLM
+except ImportError:
+    from langchain_community.llms import Ollama
+    print("Warning: Using deprecated OllamaLLM. Install/upgrade langchain-ollama.")
 from langchain.chains import RetrievalQA
 import PyPDF2
 from datetime import datetime
@@ -129,146 +133,38 @@ def extract_author_publisher_from_text(text):
             for i in range(1, len(match.groups()) + 1):
                 if match.group(i):
                     potential_publisher = match.group(i).strip()
-                    # Clean and validate publisher name
-                    potential_publisher = re.sub(r'[^a-zA-Z\s&]', '', potential_publisher).strip()
+                    potential_publisher = re.sub(r'[^a-zA-Z\s&.]', '', potential_publisher).strip()
                     if (len(potential_publisher) > 3 and
-                        potential_publisher.lower() not in ['unknown', 'unknown publisher'] and
-                        not any(word in potential_publisher.lower() for word in ['author', 'page', 'chapter', 'section'])):
+                        potential_publisher.lower() not in ['unknown', 'anonymous'] and
+                        not any(word in potential_publisher.lower() for word in ['author', 'by', 'written'])):
                         publishers.append(potential_publisher)
     
-    # Remove duplicates and select the most likely candidates
-    authors = list(dict.fromkeys(authors))  # Preserve order while removing duplicates
-    publishers = list(dict.fromkeys(publishers))
-    
-    # Select the most prominent author (first found or most mentioned)
+    # Select most likely author
     if authors:
-        author = authors[0]  # Take the first found author
+        # Prioritize names with more occurrences or earlier in document
+        author_counts = {}
+        for a in authors:
+            author_counts[a] = author_counts.get(a, 0) + 1
+        author = max(author_counts, key=author_counts.get)
     
-    # Select the most prominent publisher
+    # Select most likely publisher
     if publishers:
-        publisher = publishers[0]  # Take the first found publisher
+        publisher_counts = {}
+        for p in publishers:
+            publisher_counts[p] = publisher_counts.get(p, 0) + 1
+        publisher = max(publisher_counts, key=publisher_counts.get)
     
-    return author, publisher, authors, publishers
-
-def extract_comprehensive_metadata(pdf_path):
-    """
-    Extract comprehensive metadata from PDF, scanning multiple pages for missing information.
-    """
-    try:
-        show_progress(f"Extracting metadata from {os.path.basename(pdf_path)}")
-        
-        with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            info = pdf_reader.metadata
-            
-            # Extract basic metadata
-            metadata = {
-                "title": info.get('/Title', 'Unknown'),
-                "author": info.get('/Author', 'Unknown'),
-                "creator": info.get('/Creator', 'Unknown'),
-                "producer": info.get('/Producer', 'Unknown'),
-                "creation_date": info.get('/CreationDate', 'Unknown'),
-                "modification_date": info.get('/ModDate', 'Unknown'),
-                "page_count": len(pdf_reader.pages),
-                "extraction_date": datetime.now().isoformat(),
-                "author_found_in_metadata": True,
-                "publisher_found_in_metadata": False,
-                "authors_found": [],
-                "publishers_found": []
-            }
-            
-            # Extract text from multiple pages for comprehensive analysis
-            text_for_analysis = ""
-            pages_to_check = min(5, len(pdf_reader.pages))  # Check first 5 pages
-            
-            show_progress(f"Analyzing first {pages_to_check} pages")
-            for i in range(pages_to_check):
-                try:
-                    page_text = pdf_reader.pages[i].extract_text()
-                    text_for_analysis += page_text + "\n\n"
-                except Exception as e:
-                    continue
-            
-            metadata["pages_analyzed"] = pages_to_check
-            metadata["text_sample"] = text_for_analysis[:2000]  # Store sample for reference
-            
-            # Comprehensive author and publisher extraction
-            author_from_text, publisher_from_text, all_authors, all_publishers = extract_author_publisher_from_text(text_for_analysis)
-            
-            # Update author information if not found in metadata
-            if metadata["author"] in ['Unknown', ''] and author_from_text:
-                metadata["author"] = author_from_text
-                metadata["author_found_in_metadata"] = False
-                metadata["author_source"] = "extracted_from_text"
-            
-            # Always try to find publisher in text
-            if publisher_from_text:
-                metadata["publisher"] = publisher_from_text
-                metadata["publisher_found_in_metadata"] = False
-                metadata["publisher_source"] = "extracted_from_text"
-            else:
-                metadata["publisher"] = "Unknown"
-            
-            # Store all found authors and publishers for reference
-            metadata["authors_found"] = all_authors
-            metadata["publishers_found"] = all_publishers
-            
-            # Additional metadata extraction
-            metadata.update(extract_additional_metadata(text_for_analysis))
-            
-            show_progress("Metadata extraction completed")
-            return metadata
-            
-    except Exception as e:
-        return {"error": f"Metadata extraction failed: {str(e)}"}
-
-def extract_additional_metadata(text):
-    """
-    Extract additional metadata from text content.
-    """
-    additional_metadata = {}
-    
-    # Extract publication year
-    year_match = re.search(r'(?:©|copyright|\(c\))\s*(\d{4})', text, re.IGNORECASE)
-    if year_match:
-        additional_metadata["publication_year"] = year_match.group(1)
-    
-    # Extract ISBN
-    isbn_match = re.search(r'ISBN[-]?(1[03])?[:]?[ ]?([0-9\- ]{10,17})', text, re.IGNORECASE)
-    if isbn_match:
-        additional_metadata["isbn"] = isbn_match.group(0).strip()
-    
-    # Extract DOI
-    doi_match = re.search(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', text, re.IGNORECASE)
-    if doi_match:
-        additional_metadata["doi"] = doi_match.group(0).strip()
-    
-    # Extract keywords (from common keyword sections)
-    keywords_match = re.search(r'(?:keywords|key words)[:\s]+([^.]+?)(?:\n|\.|;)', text, re.IGNORECASE)
-    if keywords_match:
-        keywords = [k.strip() for k in keywords_match.group(1).split(',') if k.strip()]
-        additional_metadata["keywords"] = keywords
-    
-    # Extract abstract
-    abstract_match = re.search(r'(?:abstract|summary)[:\s]+([^.]+?)(?:\n|\.|Introduction|§)', text, re.IGNORECASE | re.DOTALL)
-    if abstract_match:
-        abstract = abstract_match.group(1).strip()
-        if len(abstract) > 50 and len(abstract) < 500:  # Reasonable abstract length
-            additional_metadata["abstract"] = abstract
-    
-    return additional_metadata
+    return author, publisher
 
 def get_available_pdfs():
     """
-    Returns a list of available PDF files in the data directory.
+    Retrieves a list of available PDF files from the specified directory.
     """
-    # Updated path to the new location
     data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
     pdf_files = []
     
+    # Create directory if it doesn't exist
     if not os.path.exists(data_path):
-        print(f"ERROR: The specified directory {data_path} does not exist.")
-        # Create the directory if it doesn't exist
         try:
             os.makedirs(data_path)
             print(f"✓ Created PDF directory: {data_path}")
@@ -341,7 +237,7 @@ def create_rag_system():
     vector_store = Chroma.from_documents(texts, embeddings, collection_name="local_rag_collection")
 
     show_progress("Initializing AI model")
-    llm = Ollama(model="qwen:0.5b")
+    llm = OllamaLLM(model="qwen:0.5b")
     retriever = vector_store.as_retriever()
     
     show_progress("Creating retrieval chain")
@@ -379,10 +275,11 @@ def create_rag_system_for_pdf(pdf_path):
     vector_store = Chroma.from_documents(texts, embeddings, collection_name="single_pdf_collection")
 
     show_progress("Initializing AI model")
-    llm = Ollama(model="qwen:0.5b")
+    llm = OllamaLLM(model="qwen:0.5b")
     retriever = vector_store.as_retriever()
     
     show_progress("Creating retrieval chain")
     qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever, chain_type="stuff")
 
     return qa_chain
+    

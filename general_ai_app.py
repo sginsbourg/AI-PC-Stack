@@ -1,8 +1,12 @@
 import gradio as gr
-from langchain_community.llms import Ollama
+try:
+    from langchain_ollama import OllamaLLM
+except ImportError:
+    from langchain_community.llms import Ollama
+    print("Warning: Using deprecated OllamaLLM. Install/upgrade langchain-ollama.")
 
 # Initialize General AI
-general_ai = Ollama(model="llama2")
+general_ai = OllamaLLM(model="llama2")
 
 def query_general_ai(query):
     try:
@@ -40,3 +44,4 @@ def create_general_ai_demo():
         )
     
     return general_ai_demo
+    

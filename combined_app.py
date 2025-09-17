@@ -1,10 +1,14 @@
 import gradio as gr
 from rag_system import create_rag_system
-from langchain_community.llms import Ollama
+try:
+    from langchain_ollama import OllamaLLM
+except ImportError:
+    from langchain_community.llms import Ollama
+    print("Warning: Using deprecated OllamaLLM. Install/upgrade langchain-ollama.")
 
 # Initialize both systems
 rag_chain = create_rag_system()
-general_ai = Ollama(model="llama2")
+general_ai = OllamaLLM(model="llama2")
 
 def query_rag_system(query):
     if not rag_chain:
@@ -41,7 +45,7 @@ def create_combined_demo():
         gr.Markdown("# 🤖 Combined AI Systems")
         gr.Markdown("### Get answers from both RAG and General AI")
         
-        with gr.Row():  # FIXED: Changed R极 to Row
+        with gr.Row():
             with gr.Column():
                 combined_input = gr.Textbox(
                     label="Your Question",

@@ -1,5 +1,9 @@
 import gradio as gr
-from langchain_community.llms import Ollama
+try:
+    from langchain_ollama import OllamaLLM
+except ImportError:
+    from langchain_community.llms import Ollama
+    print("Warning: Using deprecated OllamaLLM. Install/upgrade langchain-ollama.")
 from langchain.agents import Tool, AgentExecutor, LLMSingleActionAgent, AgentOutputParser
 from langchain.prompts import StringPromptTemplate
 from langchain.schema import AgentAction, AgentFinish
@@ -9,15 +13,12 @@ import re
 from datetime import datetime
 import os
 
-# Initialize the base LLM
-llm = Ollama(model="llama2")
-
 # Define specialized agents FIRST
 class ResearchAgent:
     def __init__(self):
         self.name = "Research Specialist"
         self.role = "Expert in research, analysis, and information synthesis"
-        self.llm = Ollama(model="llama2")
+        self.llm = OllamaLLM(model="llama2")
     
     def analyze(self, query):
         prompt = f"""As a Research Specialist, analyze and provide comprehensive information about:
@@ -38,7 +39,7 @@ class CreativeAgent:
     def __init__(self):
         self.name = "Creative Writer"
         self.role = "Expert in creative writing, storytelling, and content creation"
-        self.llm = Ollama(model="llama2")
+        self.llm = OllamaLLM(model="llama2")
     
     def create(self, query):
         prompt = f"""As a Creative Writer, create engaging content based on:
@@ -59,7 +60,7 @@ class TechnicalAgent:
     def __init__(self):
         self.name = "Technical Expert"
         self.role = "Expert in technical explanations, code, and detailed analysis"
-        self.llm = Ollama(model="llama2")
+        self.llm = OllamaLLM(model="llama2")
     
     def explain(self, query):
         prompt = f"""As a Technical Expert, provide detailed technical explanation for:
@@ -80,7 +81,7 @@ class BusinessAgent:
     def __init__(self):
         self.name = "Business Analyst"
         self.role = "Expert in business strategy, analysis, and decision-making"
-        self.llm = Ollama(model="llama2")
+        self.llm = OllamaLLM(model="llama2")
     
     def analyze_business(self, query):
         prompt = f"""As a Business Analyst, provide business insights for:
@@ -106,7 +107,7 @@ class MultiAgentSystem:
             "technical": TechnicalAgent(),
             "business": BusinessAgent()
         }
-        self.coordinator_llm = Ollama(model="llama2")
+        self.coordinator_llm = OllamaLLM(model="llama2")
     
     def route_query(self, query):
         """Determine which agent(s) should handle the query"""
@@ -152,43 +153,11 @@ class MultiAgentSystem:
                         response = agent.explain(query)
                     elif agent_name == "business":
                         response = agent.analyze_business(query)
-                    else:
-                        response = "Agent not implemented"
-                    
-                    responses[agent.name] = response
+                    responses[agent_name] = response
                 except Exception as e:
-                    responses[agent.name] = f"Error: {str(e)}"
+                    responses[agent_name] = f"Error in {agent_name}: {str(e)}"
         
         return responses
-
-class RAGEnhancedAgent:
-    def __init__(self, rag_chain):
-        self.name = "RAG-Enhanced Agent"
-        self.role = "Agent with access to your PDF documents"
-        self.llm = Ollama(model="llama2")
-        self.rag_chain = rag_chain
-    
-    def query_with_rag(self, query):
-        try:
-            if self.rag_chain:
-                rag_response = self.rag_chain.invoke(query)
-                context = rag_response['result']
-                
-                prompt = f"""Based on the document context and your knowledge, answer the following:
-                
-                QUERY: {query}
-                
-                DOCUMENT CONTEXT: {context}
-                
-                Please provide a comprehensive answer that combines information from the documents with your general knowledge.
-                
-                Response:"""
-                
-                return self.llm.invoke(prompt)
-            else:
-                return "RAG system not available for document access."
-        except Exception as e:
-            return f"RAG-enhanced query error: {str(e)}"
 
 # Update MultiAgentSystem to include RAG agent - NOW DEFINED AFTER MultiAgentSystem
 class EnhancedMultiAgentSystem(MultiAgentSystem):
