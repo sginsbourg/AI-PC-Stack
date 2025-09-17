@@ -2,6 +2,7 @@ import gradio as gr
 import os
 import threading
 import time
+import subprocess
 from show_progress import show_progress
 import psutil
 from flask import Flask, jsonify
@@ -50,6 +51,11 @@ pdf_count = 0
 processed_count = 0
 rag_system_ready = False
 
+# Path to text-generation-webui
+TEXTGEN_PATH = r"C:\Users\sgins\AI_STACK\tg-webui"
+TEXTGEN_PORT = 5001
+textgen_process = None
+
 # Initialize system monitor
 system_monitor = SystemMonitor()
 
@@ -86,6 +92,29 @@ def start_status_server():
 # Start status server
 status_thread = threading.Thread(target=start_status_server, daemon=True)
 status_thread.start()
+
+def start_textgen_webui():
+    """Start the text-generation-webui server in background on a different port"""
+    global textgen_process
+    if textgen_process and textgen_process.poll() is None:
+        print("TextGen WebUI is already running.")
+        return
+    
+    try:
+        # Change to textgen directory and start server
+        os.chdir(TEXTGEN_PATH)
+        # Run server.py with listen and custom port; assumes requirements are installed in its env
+        cmd = [
+            'python', 'server.py',
+            '--listen',
+            f'--port={TEXTGEN_PORT}',
+            '--api'  # Enable API if needed
+        ]
+        textgen_process = subprocess.Popen(cmd, cwd=TEXTGEN_PATH, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(f"Started TextGen WebUI on http://127.0.0.1:{TEXTGEN_PORT}")
+        time.sleep(5)  # Give it time to start
+    except Exception as e:
+        print(f"Error starting TextGen WebUI: {e}")
 
 def background_pdf_processing():
     """Process PDFs in the background while UI is running with progress tracking"""
@@ -199,6 +228,13 @@ input[type=range] {
 .accordion h3 {
     color: #1e3a8a;
 }
+.textgen-iframe {
+    width: 100%;
+    height: 800px;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 50, 0.1);
+}
 @media (max-width: 768px) {
     .gate-container {
         padding: 15px;
@@ -274,6 +310,7 @@ def create_enhanced_gateway_tab():
                - Podcast Generator for audio content from documents
                - RAG System for document-specific questions
                - Multi-Agent for specialized perspectives
+               - Text Generation UI for advanced LLM interactions
             4. **Combine Power**: Use the Combined AI tab to get multiple perspectives on important questions
             
             **Pro Tip**: The system processes PDFs in the background. You can start using other features immediately!
@@ -359,11 +396,26 @@ with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
             with gr.TabItem("🤖 Multi-Agent", id="multi_agent"):
                 create_multi_agent_demo()
 
+        # New tab for Text Generation WebUI
+        with gr.TabItem("🗣️ Text Generation UI", id="textgen"):
+            gr.Markdown("# 🗣️ Oobabooga Text Generation WebUI")
+            gr.Markdown("### Advanced LLM Interface for Text Generation")
+            gr.HTML(f"""
+            <iframe src="http://127.0.0.1:{TEXTGEN_PORT}" class="textgen-iframe"></iframe>
+            <p style="text-align: center; margin-top: 10px;">
+                <small>Embedded Text Generation WebUI (Port {TEXTGEN_PORT})</small>
+            </p>
+            """)
+
 if __name__ == "__main__":
     print("🚀 Launching AI Hub Gateway...")
     print("🌐 UI will be available at: http://localhost:7860")
     print("📊 Status API available at: http://localhost:5000")
     print("⏳ PDF processing will continue in the background")
+    print(f"🗣️ TextGen WebUI will launch on: http://127.0.0.1:{TEXTGEN_PORT}")
+    
+    # Start TextGen WebUI in background
+    start_textgen_webui()
     
     demo.launch(
         server_name="127.0.0.1",
@@ -371,3 +423,8 @@ if __name__ == "__main__":
         inbrowser=True,
         share=False
     )
+    
+    # Cleanup on exit
+    if textgen_process:
+        textgen_process.terminate()
+        
