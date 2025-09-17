@@ -4,28 +4,7 @@ import threading
 import time
 from show_progress import show_progress
 
-# Add to imports section
-try:
-    from agent_system import create_multi_agent_demo
-    multi_agent_available = True
-except ImportError:
-    multi_agent_available = False
-    print("Multi-Agent app not available")
-
-# Add to the app grid in create_gateway_tab()
-with gr.Column(elem_classes=["app-card"] if multi_agent_available else ["app-card", "disabled-card"]):
-    gr.Markdown("<div class='app-icon'>🤖</div>")
-    gr.Markdown("<div class='app-title'>Multi-Agent System</div>")
-    gr.Markdown("<div class='app-description'>Consult specialized AI agents for different types of tasks</div>")
-    if not multi_agent_available:
-        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
-
-# Add to the tab section
-if multi_agent_available:
-    with gr.TabItem("🤖 Multi-Agent", id="multi_agent"):
-        create_multi_agent_demo()
-
-# Import all application modules
+# Import all application modules FIRST
 try:
     from rag_app import create_rag_demo
     rag_available = True
@@ -53,6 +32,14 @@ try:
 except ImportError:
     podcast_available = False
     print("Podcast app not available")
+
+# Add multi-agent import
+try:
+    from agent_system import create_multi_agent_demo
+    multi_agent_available = True
+except ImportError:
+    multi_agent_available = False
+    print("Multi-Agent app not available")
 
 # Global variables for background processing
 pdf_processing_complete = False
@@ -216,14 +203,22 @@ def create_gateway_tab():
                         gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
                     elif not rag_system_ready:
                         gr.Markdown("<div style='color: #ffc107; margin-top: 10px;'>⏳ Waiting for RAG...</div>")
+                
+                # Multi-Agent App Card
+                with gr.Column(elem_classes=["app-card"] if multi_agent_available else ["app-card", "disabled-card"]):
+                    gr.Markdown("<div class='app-icon'>🤖</div>")
+                    gr.Markdown("<div class='app-title'>Multi-Agent System</div>")
+                    gr.Markdown("<div class='app-description'>Consult specialized AI agents for different types of tasks</div>")
+                    if not multi_agent_available:
+                        gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
         
         # Status and Info Section
         with gr.Column(elem_classes=["status-bar"]):
             gr.Markdown("### 📊 System Status")
             with gr.Row():
                 with gr.Column():
-                    available_apps = sum([rag_available and rag_system_ready, general_ai_available, combined_available and rag_system_ready, podcast_available])
-                    gr.Markdown(f"**Available Applications:** {available_apps}/4")
+                    available_apps = sum([rag_available and rag_system_ready, general_ai_available, combined_available and rag_system_ready, podcast_available, multi_agent_available])
+                    gr.Markdown(f"**Available Applications:** {available_apps}/5")
                     
                     # PDF count with real-time updates
                     gr.Markdown(f"**PDF Files Found:** {pdf_count} {'(processing...)' if not pdf_processing_complete else ''}")
@@ -232,7 +227,7 @@ def create_gateway_tab():
                 with gr.Column():
                     gr.Markdown("**System Version:** 1.0.0")
                     gr.Markdown("**Last Updated:** 2025-09-15")
-                    status = "✅ Operational" if any([rag_available, general_ai_available, combined_available, podcast_available]) else "❌ No applications available"
+                    status = "✅ Operational" if any([rag_available, general_ai_available, combined_available, podcast_available, multi_agent_available]) else "❌ No applications available"
                     gr.Markdown(f"**Status:** {status}")
         
         gr.Markdown("""
@@ -264,6 +259,10 @@ with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
         if podcast_available:
             with gr.TabItem("🎙️ Podcast Generator", id="podcast"):
                 create_podcast_demo()
+        
+        if multi_agent_available:
+            with gr.TabItem("🤖 Multi-Agent", id="multi_agent"):
+                create_multi_agent_demo()
 
 if __name__ == "__main__":
     print("🚀 Launching AI Hub Gateway...")

@@ -12,43 +12,7 @@ import os
 # Initialize the base LLM
 llm = Ollama(model="llama2")
 
-class RAGEnhancedAgent:
-    def __init__(self, rag_chain):
-        self.name = "RAG-Enhanced Agent"
-        self.role = "Agent with access to your PDF documents"
-        self.llm = Ollama(model="llama2")
-        self.rag_chain = rag_chain
-    
-    def query_with_rag(self, query):
-        try:
-            if self.rag_chain:
-                rag_response = self.rag_chain.invoke(query)
-                context = rag_response['result']
-                
-                prompt = f"""Based on the document context and your knowledge, answer the following:
-                
-                QUERY: {query}
-                
-                DOCUMENT CONTEXT: {context}
-                
-                Please provide a comprehensive answer that combines information from the documents with your general knowledge.
-                
-                Response:"""
-                
-                return self.llm.invoke(prompt)
-            else:
-                return "RAG system not available for document access."
-        except Exception as e:
-            return f"RAG-enhanced query error: {str(e)}"
-
-# Update MultiAgentSystem to include RAG agent
-class EnhancedMultiAgentSystem(MultiAgentSystem):
-    def __init__(self, rag_chain=None):
-        super().__init__()
-        if rag_chain:
-            self.agents["rag_enhanced"] = RAGEnhancedAgent(rag_chain)
-
-# Define specialized agents
+# Define specialized agents FIRST
 class ResearchAgent:
     def __init__(self):
         self.name = "Research Specialist"
@@ -133,7 +97,7 @@ class BusinessAgent:
         
         return self.llm.invoke(prompt)
 
-# Multi-Agent Coordinator
+# Multi-Agent Coordinator - DEFINED BEFORE EnhancedMultiAgentSystem
 class MultiAgentSystem:
     def __init__(self):
         self.agents = {
@@ -196,6 +160,42 @@ class MultiAgentSystem:
                     responses[agent.name] = f"Error: {str(e)}"
         
         return responses
+
+class RAGEnhancedAgent:
+    def __init__(self, rag_chain):
+        self.name = "RAG-Enhanced Agent"
+        self.role = "Agent with access to your PDF documents"
+        self.llm = Ollama(model="llama2")
+        self.rag_chain = rag_chain
+    
+    def query_with_rag(self, query):
+        try:
+            if self.rag_chain:
+                rag_response = self.rag_chain.invoke(query)
+                context = rag_response['result']
+                
+                prompt = f"""Based on the document context and your knowledge, answer the following:
+                
+                QUERY: {query}
+                
+                DOCUMENT CONTEXT: {context}
+                
+                Please provide a comprehensive answer that combines information from the documents with your general knowledge.
+                
+                Response:"""
+                
+                return self.llm.invoke(prompt)
+            else:
+                return "RAG system not available for document access."
+        except Exception as e:
+            return f"RAG-enhanced query error: {str(e)}"
+
+# Update MultiAgentSystem to include RAG agent - NOW DEFINED AFTER MultiAgentSystem
+class EnhancedMultiAgentSystem(MultiAgentSystem):
+    def __init__(self, rag_chain=None):
+        super().__init__()
+        if rag_chain:
+            self.agents["rag_enhanced"] = RAGEnhancedAgent(rag_chain)
 
 # Initialize the multi-agent system
 multi_agent_system = MultiAgentSystem()
