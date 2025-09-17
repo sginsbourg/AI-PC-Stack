@@ -210,7 +210,7 @@ echo.
 set "step_start=%time%"
 python run_ai_hub.py
 set "err=%errorlevel%"
-echo python multi_ai_app.py completed, errorlevel: !err! >> "%DEBUG_LOG%" 2>&1
+echo python run_ai_hub.py completed, errorlevel: !err! >> "%DEBUG_LOG%" 2>&1
 call :CalculateTime "!step_start!" || (
     echo ERROR: CalculateTime failed for AI Hub Gateway launch >> "%DEBUG_LOG%" 2>&1
     goto :error

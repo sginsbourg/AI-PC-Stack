@@ -1,78 +1,78 @@
-Starting AI Hub Core Launcher at Wed 09/17/2025 23:44:53.77 
+Starting AI Hub Core Launcher at Thu 09/18/2025  0:05:58.43 
 Environment: PATH=C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Program Files\Git\cmd;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\Program Files\Git\bin;C:\ffmpeg\bin;C:\Program Files\dotnet\;C:\Program Files\PowerShell\7\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\Scripts\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\;C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Users\sgins\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0-full_build-shared\bin;C:\Users\sgins\AppData\Local\Programs\cursor\resources\app\bin;;;C:\Users\sgins\AppData\Local\Programs\Ollama;C:\Users\sgins\AppData\Local\Programs\Kiro\bin;C:\Users\sgins\AppData\Local\atom\bin;C:\Program Files\Markdown Monster 
-Time format: 23:44:53.80 
+Time format:  0:05:58.45 
  
 ======================================== 
        AI HUB CORE LAUNCHER 
 ======================================== 
-Start time: 23:44:53.90 
+Start time:  0:05:58.53 
 Changed directory to C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack, errorlevel: 0 
 Checking for Python... 
 where python completed, errorlevel: 0 
-CalculateTime: start=23:44:53.99, end=23:44:54.10 
-CalculateTime: start_h=23, start_m=44, start_s=53, start_ms=99 
-CalculateTime: end_h=23, end_m=44, end_s=54, end_ms=10 
-CalculateTime: Numeric start_h=23, start_m=44, start_s=53, start_ms=99 
-CalculateTime: Numeric end_h=23, end_m=44, end_s=54, end_ms=10 
-CalculateTime: Result elapsed_time=0.11 
-Done checking Python ... (0.11 sec) 
+CalculateTime: start= 0:05:58.59, end= 0:05:58.65 
+CalculateTime: start_h=00, start_m=05, start_s=58, start_ms=59 
+CalculateTime: end_h=00, end_m=05, end_s=58, end_ms=65 
+CalculateTime: Numeric start_h=0, start_m=5, start_s=58, start_ms=59 
+CalculateTime: Numeric end_h=0, end_m=5, end_s=58, end_ms=65 
+CalculateTime: Result elapsed_time=0.06 
+Done checking Python ... (0.06 sec) 
 Checking if Ollama is installed... 
 ollama --version completed, errorlevel: 0 
-CalculateTime: start=23:44:54.30, end=23:44:54.64 
-CalculateTime: start_h=23, start_m=44, start_s=54, start_ms=30 
-CalculateTime: end_h=23, end_m=44, end_s=54, end_ms=64 
-CalculateTime: Numeric start_h=23, start_m=44, start_s=54, start_ms=30 
-CalculateTime: Numeric end_h=23, end_m=44, end_s=54, end_ms=64 
-CalculateTime: Result elapsed_time=0.34 
-Done checking Ollama installation ... (0.34 sec) 
+CalculateTime: start= 0:05:58.97, end= 0:05:59.22 
+CalculateTime: start_h=00, start_m=05, start_s=58, start_ms=97 
+CalculateTime: end_h=00, end_m=05, end_s=59, end_ms=22 
+CalculateTime: Numeric start_h=0, start_m=5, start_s=58, start_ms=97 
+CalculateTime: Numeric end_h=0, end_m=5, end_s=59, end_ms=22 
+CalculateTime: Result elapsed_time=0.25 
+Done checking Ollama installation ... (0.25 sec) 
 ✓ Ollama is installed 
 Setting up the virtual environment... 
 ✓ Virtual environment already exists 
-CalculateTime: start=23:44:54.95, end=23:44:55.01 
-CalculateTime: start_h=23, start_m=44, start_s=54, start_ms=95 
-CalculateTime: end_h=23, end_m=44, end_s=55, end_ms=01 
-CalculateTime: Numeric start_h=23, start_m=44, start_s=54, start_ms=95 
-CalculateTime: Numeric end_h=23, end_m=44, end_s=55, end_ms=1 
-CalculateTime: Result elapsed_time=0.06 
-Done setting up virtual environment ... (0.06 sec) 
+CalculateTime: start= 0:05:59.46, end= 0:05:59.51 
+CalculateTime: start_h=00, start_m=05, start_s=59, start_ms=46 
+CalculateTime: end_h=00, end_m=05, end_s=59, end_ms=51 
+CalculateTime: Numeric start_h=0, start_m=5, start_s=59, start_ms=46 
+CalculateTime: Numeric end_h=0, end_m=5, end_s=59, end_ms=51 
+CalculateTime: Result elapsed_time=0.05 
+Done setting up virtual environment ... (0.05 sec) 
 Activating the virtual environment... 
 venv activation completed, errorlevel: 0 
-CalculateTime: start=23:44:55.22, end=23:44:55.30 
-CalculateTime: start_h=23, start_m=44, start_s=55, start_ms=22 
-CalculateTime: end_h=23, end_m=44, end_s=55, end_ms=30 
-CalculateTime: Numeric start_h=23, start_m=44, start_s=55, start_ms=22 
-CalculateTime: Numeric end_h=23, end_m=44, end_s=55, end_ms=30 
-CalculateTime: Result elapsed_time=0.08 
-Done activating virtual environment ... (0.08 sec) 
+CalculateTime: start= 0:05:59.80, end= 0:05:59.86 
+CalculateTime: start_h=00, start_m=05, start_s=59, start_ms=80 
+CalculateTime: end_h=00, end_m=05, end_s=59, end_ms=86 
+CalculateTime: Numeric start_h=0, start_m=5, start_s=59, start_ms=80 
+CalculateTime: Numeric end_h=0, end_m=5, end_s=59, end_ms=86 
+CalculateTime: Result elapsed_time=0.06 
+Done activating virtual environment ... (0.06 sec) 
 Checking if dependencies are installed... 
 pip check completed, errorlevel: 0 
 ✓ Dependencies already satisfied 
-CalculateTime: start=23:44:55.54, end=23:45:04.10 
-CalculateTime: start_h=23, start_m=44, start_s=55, start_ms=54 
-CalculateTime: end_h=23, end_m=45, end_s=04, end_ms=10 
-CalculateTime: Numeric start_h=23, start_m=44, start_s=55, start_ms=54 
-CalculateTime: Numeric end_h=23, end_m=45, end_s=4, end_ms=10 
-CalculateTime: Result elapsed_time=8.56 
-Done checking/installing dependencies ... (8.56 sec) 
+CalculateTime: start= 0:06:00.09, end= 0:06:04.10 
+CalculateTime: start_h=00, start_m=06, start_s=00, start_ms=09 
+CalculateTime: end_h=00, end_m=06, end_s=04, end_ms=10 
+CalculateTime: Numeric start_h=0, start_m=6, start_s=0, start_ms=9 
+CalculateTime: Numeric end_h=0, end_m=6, end_s=4, end_ms=10 
+CalculateTime: Result elapsed_time=4.01 
+Done checking/installing dependencies ... (4.01 sec) 
 Checking TextGen WebUI... 
 curl check for TextGen WebUI, errorlevel: 7 
-WARNING: TextGen WebUI not responding at 23:45:06.62 
-CalculateTime: start=23:45:04.44, end=23:45:06.66 
-CalculateTime: start_h=23, start_m=45, start_s=04, start_ms=44 
-CalculateTime: end_h=23, end_m=45, end_s=06, end_ms=66 
-CalculateTime: Numeric start_h=23, start_m=45, start_s=4, start_ms=44 
-CalculateTime: Numeric end_h=23, end_m=45, end_s=6, end_ms=66 
-CalculateTime: Result elapsed_time=2.22 
-Done checking TextGen WebUI ... (2.22 sec) 
+WARNING: TextGen WebUI not responding at  0:06:06.46 
+CalculateTime: start= 0:06:04.42, end= 0:06:06.50 
+CalculateTime: start_h=00, start_m=06, start_s=04, start_ms=42 
+CalculateTime: end_h=00, end_m=06, end_s=06, end_ms=50 
+CalculateTime: Numeric start_h=0, start_m=6, start_s=4, start_ms=42 
+CalculateTime: Numeric end_h=0, end_m=6, end_s=6, end_ms=50 
+CalculateTime: Result elapsed_time=2.08 
+Done checking TextGen WebUI ... (2.08 sec) 
 Checking Ollama server... 
 tasklist check for Ollama, errorlevel: 0 
-CalculateTime: start=23:45:07.05, end=23:45:07.46 
-CalculateTime: start_h=23, start_m=45, start_s=07, start_ms=05 
-CalculateTime: end_h=23, end_m=45, end_s=07, end_ms=46 
-CalculateTime: Numeric start_h=23, start_m=45, start_s=7, start_ms=5 
-CalculateTime: Numeric end_h=23, end_m=45, end_s=7, end_ms=46 
-CalculateTime: Result elapsed_time=0.41 
-Done checking Ollama server ... (0.41 sec) 
+CalculateTime: start= 0:06:06.78, end= 0:06:06.94 
+CalculateTime: start_h=00, start_m=06, start_s=06, start_ms=78 
+CalculateTime: end_h=00, end_m=06, end_s=06, end_ms=94 
+CalculateTime: Numeric start_h=0, start_m=6, start_s=6, start_ms=78 
+CalculateTime: Numeric end_h=0, end_m=6, end_s=6, end_ms=94 
+CalculateTime: Result elapsed_time=0.16 
+Done checking Ollama server ... (0.16 sec) 
  
 ======================================== 
        STARTING AI HUB GATEWAY 
@@ -87,24 +87,24 @@ The gateway will give you access to:
 - Multi-Agent System (Specialized) 
 - Text Generation UI (Advanced LLM) 
 PDF processing will continue in the background. 
-python multi_ai_app.py completed, errorlevel: 0 
-CalculateTime: start=23:45:08.36, end=23:50:12.55 
-CalculateTime: start_h=23, start_m=45, start_s=08, start_ms=36 
-CalculateTime: end_h=23, end_m=50, end_s=12, end_ms=55 
-CalculateTime: Numeric start_h=23, start_m=45, start_s=8, start_ms=36 
-CalculateTime: Numeric end_h=23, end_m=50, end_s=12, end_ms=55 
-CalculateTime: Result elapsed_time=304.19 
-Done launching AI Hub Gateway ... (304.19 sec) 
+python multi_ai_app.py completed, errorlevel: 1 
+CalculateTime: start= 0:06:07.47, end= 0:11:12.50 
+CalculateTime: start_h=00, start_m=06, start_s=07, start_ms=47 
+CalculateTime: end_h=00, end_m=11, end_s=12, end_ms=50 
+CalculateTime: Numeric start_h=0, start_m=6, start_s=7, start_ms=47 
+CalculateTime: Numeric end_h=0, end_m=11, end_s=12, end_ms=50 
+CalculateTime: Result elapsed_time=305.03 
+Done launching AI Hub Gateway ... (305.03 sec) 
  
 ======================================== 
        APPLICATION CLOSED 
 ======================================== 
 The AI Hub has been closed. 
 venv deactivation completed, errorlevel: 0 
-CalculateTime: start=23:44:53.90, end=23:50:12.85 
-CalculateTime: start_h=23, start_m=44, start_s=53, start_ms=90 
-CalculateTime: end_h=23, end_m=50, end_s=12, end_ms=85 
-CalculateTime: Numeric start_h=23, start_m=44, start_s=53, start_ms=90 
-CalculateTime: Numeric end_h=23, end_m=50, end_s=12, end_ms=85 
-CalculateTime: Result elapsed_time=318.95 
-Total core launch time ... (318.95 sec) 
+CalculateTime: start= 0:05:58.53, end= 0:11:12.77 
+CalculateTime: start_h=00, start_m=05, start_s=58, start_ms=53 
+CalculateTime: end_h=00, end_m=11, end_s=12, end_ms=77 
+CalculateTime: Numeric start_h=0, start_m=5, start_s=58, start_ms=53 
+CalculateTime: Numeric end_h=0, end_m=11, end_s=12, end_ms=77 
+CalculateTime: Result elapsed_time=314.24 
+Total core launch time ... (314.24 sec) 

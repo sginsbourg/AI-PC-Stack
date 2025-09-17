@@ -1,4 +1,3 @@
-
 import gradio as gr
 import os
 import threading
@@ -491,14 +490,3 @@ if __name__ == "__main__":
     
     total_elapsed_time = time.time() - total_start_time
     print(f"Done executing AI Hub Gateway ... ({total_elapsed_time:.1f} sec)")
-
-# Add this at the very end of the file, after the demo.launch() section
-if __name__ == "__main__":
-    # Keep the application running
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("\nShutting down AI Hub...")
-        stop_textgen_webui()
-        stop_status_server()
