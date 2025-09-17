@@ -11,6 +11,8 @@ echo This script will launch the AI Hub gateway.
 echo From here you can access all AI applications.
 echo.
 
+start C:\Users\sgins\AI_STACK\tg-webui\start_windows.bat
+
 cd /d "C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack"
 
 echo Checking for Python...
