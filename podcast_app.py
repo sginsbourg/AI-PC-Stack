@@ -5,6 +5,7 @@ import os
 import datetime
 import hashlib
 import re
+import PyPDF2
 
 # Initialize AI systems
 general_ai = Ollama(model="llama2")
@@ -37,6 +38,170 @@ def query_general_ai(query):
         return response
     except Exception as e:
         return f"General AI Error: {e}"
+
+def extract_author_publisher_from_text(text):
+    """
+    Comprehensive extraction of author and publisher information from PDF text content.
+    """
+    author = None
+    publisher = None
+    authors = []
+    publishers = []
+    
+    # Enhanced patterns for author information
+    author_patterns = [
+        # Standard author patterns
+        r'(?:author|by|written by|created by|prepared by)[:\s]*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+        r'©.*?(\d{4}).*?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+        r'copyright.*?(\d{4}).*?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*(?:\.|,|\s+)\d{4}',
+        
+        # Academic paper patterns
+        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*et al\.',
+        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*and\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+        
+        # Email pattern (often indicates author)
+        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*[\(\[]?[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+        
+        # Affiliation patterns
+        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*(?:University|Institute|College|Laboratory)',
+    ]
+    
+    # Enhanced patterns for publisher information
+    publisher_patterns = [
+        # Standard publisher patterns
+        r'(?:published by|publisher|©|copyright|distributed by).*?([A-Z][a-zA-Z\s&]+(?:Inc|Ltd|LLC|Corp|Press|Books|Publications|Publishing|Verlag|Media|Group)?)',
+        r'([A-Z][a-zA-Z\s&]+(?:Inc|Ltd|LLC|Corp|Press|Books|Publications|Publishing|Verlag|Media|Group)?)\s*(?:\.|,|\s+)\d{4}',
+        r'ISBN.*?([A-Z][a-zA-Z\s&]+)',
+        
+        # Website patterns
+        r'([a-zA-Z0-9-]+\.[a-zA-Z]{2,})\s*(?:\.|®|™)',
+        
+        # Address patterns (often indicate publisher)
+        r'([A-Z][a-zA-Z\s&]+)\s*(?:Street|Avenue|Boulevard|Road|Drive|Lane)',
+        
+        # Conference and journal patterns
+        r'Proceedings of.*?([A-Z][a-zA-Z\s&]+)',
+        r'Journal of.*?([A-Z][a-zA-Z\s&]+)',
+        r'Conference on.*?([A-Z][a-zA-Z\s&]+)',
+    ]
+    
+    # Search for authors with multiple patterns
+    for pattern in author_patterns:
+        matches = re.finditer(pattern, text, re.IGNORECASE)
+        for match in matches:
+            # Extract the most likely author group
+            for i in range(1, len(match.groups()) + 1):
+                if match.group(i) and len(match.group(i).split()) >= 2:
+                    potential_author = match.group(i).strip()
+                    # Clean and validate author name
+                    potential_author = re.sub(r'[^a-zA-Z\s]', '', potential_author).strip()
+                    if (len(potential_author.split()) >= 2 and 
+                        len(potential_author) > 5 and  # Reasonable minimum length
+                        potential_author.lower() not in ['unknown', 'anonymous', 'various'] and
+                        not any(word in potential_author.lower() for word in ['university', 'institute', 'company', 'corporation'])):
+                        authors.append(potential_author)
+    
+    # Search for publishers with multiple patterns
+    for pattern in publisher_patterns:
+        matches = re.finditer(pattern, text, re.IGNORECASE)
+        for match in matches:
+            for i in range(1, len(match.groups()) + 1):
+                if match.group(i):
+                    potential_publisher = match.group(i).strip()
+                    # Clean and validate publisher name
+                    potential_publisher = re.sub(r'[^a-zA-Z\s&]', '', potential_publisher).strip()
+                    if (len(potential_publisher) > 3 and
+                        potential_publisher.lower() not in ['unknown', 'unknown publisher'] and
+                        not any(word in potential_publisher.lower() for word in ['author', 'page', 'chapter', 'section'])):
+                        publishers.append(potential_publisher)
+    
+    # Remove duplicates and select the most likely candidates
+    authors = list(dict.fromkeys(authors))  # Preserve order while removing duplicates
+    publishers = list(dict.fromkeys(publishers))
+    
+    # Select the most prominent author (first found or most mentioned)
+    if authors:
+        author = authors[0]  # Take the first found author
+    
+    # Select the most prominent publisher
+    if publishers:
+        publisher = publishers[0]  # Take the first found publisher
+    
+    return author, publisher, authors, publishers
+
+def extract_text_from_pdf(pdf_path, max_pages=5):
+    """
+    Extract text from the first few pages of a PDF for metadata analysis.
+    """
+    try:
+        text_content = ""
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            pages_to_read = min(max_pages, len(pdf_reader.pages))
+            
+            for i in range(pages_to_read):
+                try:
+                    page_text = pdf_reader.pages[i].extract_text()
+                    if page_text:
+                        text_content += page_text + "\n\n"
+                except Exception as e:
+                    continue
+        
+        return text_content
+    except Exception as e:
+        print(f"Error extracting text from PDF: {e}")
+        return ""
+
+def enhance_metadata_with_text_analysis(pdf_data):
+    """
+    Enhance PDF metadata by analyzing text content for missing author/publisher info.
+    """
+    if "error" in pdf_data or not pdf_data.get("pdf_path"):
+        return pdf_data
+    
+    pdf_path = pdf_data["pdf_path"]
+    
+    # Check if we need to extract author/publisher from text
+    needs_author_extraction = (
+        "author" not in pdf_data or 
+        pdf_data.get("author") in ['Unknown', ''] or
+        pdf_data.get("author_found_in_metadata", False) == False
+    )
+    
+    needs_publisher_extraction = (
+        "publisher" not in pdf_data or 
+        pdf_data.get("publisher") in ['Unknown', ''] or
+        pdf_data.get("publisher_found_in_metadata", False) == False
+    )
+    
+    if needs_author_extraction or needs_publisher_extraction:
+        # Extract text from first few pages
+        text_content = extract_text_from_pdf(pdf_path, max_pages=5)
+        
+        if text_content:
+            author_from_text, publisher_from_text, all_authors, all_publishers = extract_author_publisher_from_text(text_content)
+            
+            # Update author information if needed
+            if needs_author_extraction and author_from_text:
+                pdf_data["author"] = author_from_text
+                pdf_data["author_found_in_metadata"] = False
+                pdf_data["author_source"] = "extracted_from_text"
+                pdf_data["authors_found"] = all_authors
+            
+            # Update publisher information if needed
+            if needs_publisher_extraction and publisher_from_text:
+                pdf_data["publisher"] = publisher_from_text
+                pdf_data["publisher_found_in_metadata"] = False
+                pdf_data["publisher_source"] = "extracted_from_text"
+                pdf_data["publishers_found"] = all_publishers
+            
+            # Add text analysis metadata
+            pdf_data["text_analysis_performed"] = True
+            pdf_data["text_analysis_date"] = datetime.datetime.now().isoformat()
+            pdf_data["pages_analyzed_for_text"] = min(5, len(PyPDF2.PdfReader(open(pdf_path, 'rb')).pages))
+    
+    return pdf_data
 
 def manual_check_pdfs():
     data_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
@@ -116,9 +281,13 @@ def stage2_analyze_pdf(pdf_data):
         return cached_result, "PDF analysis loaded from cache"
     
     try:
+        # First get standard metadata
         metadata = extract_comprehensive_metadata(pdf_path)
         result = {**pdf_data, **metadata}
         result["analysis_date"] = datetime.datetime.now().isoformat()
+        
+        # Enhance with text analysis for author/publisher
+        result = enhance_metadata_with_text_analysis(result)
         
         save_to_cache(cache_key, result)
         return result, "PDF analysis completed successfully"
@@ -139,6 +308,18 @@ podcast_css = """
     font-weight: bold;
     margin-bottom: 15px;
     color: #2c5282;
+}
+.metadata-info {
+    background: #e8f5e8;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+.metadata-warning {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
 }
 """
 
@@ -172,13 +353,23 @@ def create_podcast_demo():
                 with gr.Row():
                     with gr.Column():
                         gr.Markdown("#### Analyze PDF Metadata")
+                        gr.Markdown("""
+                        <div class="metadata-info">
+                        🔍 <strong>Advanced Metadata Extraction</strong><br>
+                        The system will:
+                        - Extract standard PDF metadata
+                        - Scan document text for author information
+                        - Search for publisher details
+                        - Analyze content structure
+                        </div>
+                        """)
                         stage2_btn = gr.Button("Analyze PDF", variant="primary")
                     
                     with gr.Column():
                         stage2_output = gr.JSON(label="PDF Analysis Results")
                         stage2_status = gr.Textbox(label="Status")
         
-        # Connect the buttons - FIXED THE TYPO HERE
+        # Connect the buttons
         refresh_btn.click(
             fn=refresh_pdf_list,
             inputs=[],
@@ -187,7 +378,7 @@ def create_podcast_demo():
         
         stage1_btn.click(
             fn=stage1_select_pdf,
-            inputs=[pdf_dropdown],  # FIXED: Changed 极dropdown to pdf_dropdown
+            inputs=[pdf_dropdown],
             outputs=[stage1_output, current_pdf_data, stage1_status]
         )
         
