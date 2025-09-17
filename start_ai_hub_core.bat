@@ -208,7 +208,7 @@ echo PDF processing will continue in the background. >> "%DEBUG_LOG%" 2>&1
 echo.
 
 set "step_start=%time%"
-python multi_ai_app.py
+python run_ai_hub.py
 set "err=%errorlevel%"
 echo python multi_ai_app.py completed, errorlevel: !err! >> "%DEBUG_LOG%" 2>&1
 call :CalculateTime "!step_start!" || (

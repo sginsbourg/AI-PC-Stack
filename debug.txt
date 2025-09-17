@@ -8,3 +8,13 @@
 [Wed 09/17/2025 19:34:28.52] CalculateTime result: 4.70 sec 
 [Wed 09/17/2025 19:34:28.55] Total TextGen startup: 4.70 sec 
 [Wed 09/17/2025 19:34:28.60] Ending start_textgen.bat 
+[Wed 09/17/2025 23:44:49.23] Starting start_textgen.bat 
+[Wed 09/17/2025 23:44:49.24] Start time: 23:44:49.24 
+[Wed 09/17/2025 23:44:49.29] Launched start_windows.bat 
+[Wed 09/17/2025 23:44:54.13] CalculateTime: start=23:44:49.29, end=23:44:54.13 
+[Wed 09/17/2025 23:44:54.16] CalculateTime result: 4.84 sec 
+[Wed 09/17/2025 23:44:54.19] Wait completed in 4.84 sec 
+[Wed 09/17/2025 23:44:54.21] CalculateTime: start=23:44:49.24, end=23:44:54.21 
+[Wed 09/17/2025 23:44:54.22] CalculateTime result: 4.97 sec 
+[Wed 09/17/2025 23:44:54.25] Total TextGen startup: 4.97 sec 
+[Wed 09/17/2025 23:44:54.25] Ending start_textgen.bat 

@@ -1,17 +1,17 @@
-Starting Ollama Server Launcher at Wed 09/17/2025 19:34:24.40 
+Starting Ollama Server Launcher at Wed 09/17/2025 23:44:49.72 
 Environment: PATH=C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Program Files\Git\cmd;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\Program Files\Git\bin;C:\ffmpeg\bin;C:\Program Files\dotnet\;C:\Program Files\PowerShell\7\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\Scripts\;C:\Users\sgins\AppData\Local\Programs\Python\Python313\;C:\WINDOWS;C:\WINDOWS\System32;C:\WINDOWS\System32\Wbem;C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Users\sgins\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0-full_build-shared\bin;C:\Users\sgins\AppData\Local\Programs\cursor\resources\app\bin;!GIT_PATH!!PATHS_TO_ADD!;!GIT_PATH!;C:\Users\sgins\AppData\Local\Programs\Ollama;C:\Users\sgins\AppData\Local\Programs\Kiro\bin;C:\Users\sgins\AppData\Local\atom\bin;C:\Program Files\Markdown Monster 
-Time format: 19:34:24.43 
+Time format: 23:44:49.75 
  
 Checking if Ollama is running... 
-Start time: 19:34:24.48 
+Start time: 23:44:49.82 
 tasklist check, errorlevel: 0 
-Done starting Ollama server ... (0.06 sec) 
+Done starting Ollama server ... (0.05 sec) 
 ✓ Ollama server started 
 ✓ Ollama server is already running 
-CalculateTime: start=19:34:24.48, end=19:34:24.87 
-CalculateTime: start_h=19, start_m=34, start_s=24, start_ms=48 
-CalculateTime: end_h=19, end_m=34, end_s=24, end_ms=87 
-CalculateTime: Numeric start_h=19, start_m=34, start_s=24, start_ms=48 
-CalculateTime: Numeric end_h=19, end_m=34, end_s=24, end_ms=87 
-CalculateTime: Result elapsed_time=0.39 
-Done checking Ollama ... (0.39 sec) 
+CalculateTime: start=23:44:49.82, end=23:44:50.23 
+CalculateTime: start_h=23, start_m=44, start_s=49, start_ms=82 
+CalculateTime: end_h=23, end_m=44, end_s=50, end_ms=23 
+CalculateTime: Numeric start_h=23, start_m=44, start_s=49, start_ms=82 
+CalculateTime: Numeric end_h=23, end_m=44, end_s=50, end_ms=23 
+CalculateTime: Result elapsed_time=0.41 
+Done checking Ollama ... (0.41 sec) 
