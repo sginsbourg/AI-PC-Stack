@@ -202,6 +202,37 @@ def enhance_metadata_with_text_analysis(pdf_data):
     except Exception as e:
         return {"error": f"PDF analysis failed: {str(e)}"}, f"Analysis error: {str(e)}"
 
+def get_pdf_list():
+    """Get list of available PDFs"""
+    try:
+        return get_available_pdfs()
+    except:
+        return []
+
+def refresh_pdf_list():
+    """Refresh PDF list"""
+    return gr.update(choices=get_pdf_list())
+
+def stage1_select_pdf(pdf_path):
+    """Select and process PDF"""
+    if not pdf_path:
+        return {"error": "No PDF selected"}, {"error": "No PDF selected"}, "No PDF selected"
+    
+    try:
+        pdf_info = {
+            "pdf_path": pdf_path,
+            "filename": os.path.basename(pdf_path),
+            "size": os.path.getsize(pdf_path),
+            "modified": datetime.datetime.fromtimestamp(os.path.getmtime(pdf_path)).isoformat()
+        }
+        return pdf_info, pdf_info, "PDF selected successfully"
+    except Exception as e:
+        return {"error": str(e)}, {"error": str(e)}, f"Error selecting PDF: {str(e)}"
+
+def stage2_analyze_pdf(pdf_data):
+    """Analyze selected PDF"""
+    return enhance_metadata_with_text_analysis(pdf_data)
+
 # Podcast-specific CSS
 podcast_css = """
 .podcast-stage {
