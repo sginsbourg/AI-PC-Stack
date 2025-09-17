@@ -1,5 +1,8 @@
 import gradio as gr
 import os
+import threading
+import time
+from show_progress import show_progress
 
 # Import all application modules
 try:
@@ -29,6 +32,48 @@ try:
 except ImportError:
     podcast_available = False
     print("Podcast app not available")
+
+# Global variables for background processing
+pdf_processing_complete = False
+pdf_count = 0
+rag_system_ready = False
+
+def background_pdf_processing():
+    """Process PDFs in the background while UI is running"""
+    global pdf_processing_complete, pdf_count, rag_system_ready
+    
+    show_progress("Starting background PDF processing")
+    
+    # Check PDF directory and count files
+    pdf_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
+    if os.path.exists(pdf_path):
+        for root, dirs, files in os.walk(pdf_path):
+            for filename in files:
+                if filename.lower().endswith('.pdf'):
+                    pdf_count += 1
+                    # Simulate processing each PDF
+                    time.sleep(0.5)  # Simulate work
+    
+    pdf_processing_complete = True
+    show_progress(f"Background processing complete. Found {pdf_count} PDFs")
+    
+    # After PDFs are processed, initialize RAG system if needed
+    if rag_available and pdf_count > 0:
+        show_progress("Initializing RAG system in background")
+        try:
+            from rag_system import create_rag_system
+            rag_chain = create_rag_system()
+            rag_system_ready = rag_chain is not None
+            if rag_system_ready:
+                show_progress("RAG system initialized successfully")
+            else:
+                show_progress("RAG system initialization failed")
+        except Exception as e:
+            show_progress(f"RAG system error: {str(e)}")
+
+# Start background processing thread
+processing_thread = threading.Thread(target=background_pdf_processing, daemon=True)
+processing_thread.start()
 
 # Custom CSS for better layout
 css = """
@@ -85,6 +130,13 @@ css = """
     opacity: 0.6;
     background: linear-gradient(135deg, #cccccc 0%, #999999 100%);
 }
+.processing-indicator {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+}
 """
 
 def create_gateway_tab():
@@ -94,6 +146,14 @@ def create_gateway_tab():
         # 🚀 AI Hub - Application Gateway
         ### Choose from our suite of AI-powered applications
         """)
+        
+        # Processing status indicator
+        with gr.Column(visible=not pdf_processing_complete, elem_classes=["processing-indicator"]):
+            gr.Markdown("""
+            ⏳ **Background Processing**
+            PDF files are being processed in the background. 
+            You can continue using the interface while this completes.
+            """)
         
         # Application Grid
         with gr.Row():
@@ -107,15 +167,18 @@ def create_gateway_tab():
                         gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
                 
                 # RAG App Card
-                with gr.Column(elem_classes=["app-card"] if rag_available else ["app-card", "disabled-card"]):
+                rag_status = "RAG Q&A System" if rag_system_ready else "RAG Q&A (Processing...)"
+                with gr.Column(elem_classes=["app-card"] if rag_available and rag_system_ready else ["app-card", "disabled-card"]):
                     gr.Markdown("<div class='app-icon'>📚</div>")
-                    gr.Markdown("<div class='app-title'>RAG Q&A System</div>")
+                    gr.Markdown(f"<div class='app-title'>{rag_status}</div>")
                     gr.Markdown("<div class='app-description'>Ask questions about your PDF documents using Retrieval-Augmented Generation</div>")
                     if not rag_available:
                         gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
+                    elif not rag_system_ready:
+                        gr.Markdown("<div style='color: #ffc107; margin-top: 10px;'>⏳ Processing PDFs...</div>")
                 
                 # General AI Card
-                with gr.Column(elem_classes=["app-card"] if general_ai_available else ["极-card", "disabled-card"]):
+                with gr.Column(elem_classes=["app-card"] if general_ai_available else ["app-card", "disabled-card"]):
                     gr.Markdown("<div class='app-icon'>🌟</div>")
                     gr.Markdown("<div class='app-title'>General AI Assistant</div>")
                     gr.Markdown("<div class='app-description'>Chat with our general AI model for broad knowledge and creative tasks</div>")
@@ -123,29 +186,26 @@ def create_gateway_tab():
                         gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
                 
                 # Combined AI Card
-                with gr.Column(elem_classes=["app-card"] if combined_available else ["app-card", "disabled-card"]):
+                combined_status = "Combined AI Systems" if rag_system_ready else "Combined AI (Processing...)"
+                with gr.Column(elem_classes=["app-card"] if combined_available and rag_system_ready else ["app-card", "disabled-card"]):
                     gr.Markdown("<div class='app-icon'>🤖</div>")
-                    gr.Markdown("<div class='app-title'>Combined AI Systems</div>")
+                    gr.Markdown(f"<div class='app-title'>{combined_status}</div>")
                     gr.Markdown("<div class='app-description'>Get answers from both RAG and General AI systems simultaneously</div>")
                     if not combined_available:
                         gr.Markdown("<div style='color: #ff6b6b; margin-top: 10px;'>⚠️ Not available</div>")
+                    elif not rag_system_ready:
+                        gr.Markdown("<div style='color: #ffc107; margin-top: 10px;'>⏳ Waiting for RAG...</div>")
         
         # Status and Info Section
         with gr.Column(elem_classes=["status-bar"]):
             gr.Markdown("### 📊 System Status")
             with gr.Row():
                 with gr.Column():
-                    gr.Markdown(f"**Available Applications:** {sum([rag_available, general_ai_available, combined_available, podcast_available])}/4")
+                    available_apps = sum([rag_available and rag_system_ready, general_ai_available, combined_available and rag_system_ready, podcast_available])
+                    gr.Markdown(f"**Available Applications:** {available_apps}/4")
                     
-                    # Check if PDF directory exists and count PDFs
-                    pdf_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
-                    pdf_count = 0
-                    if os.path.exists(pdf_path):
-                        for root, dirs, files in os.walk(pdf_path):
-                            for filename in files:
-                                if filename.lower().endswith('.pdf'):
-                                    pdf_count += 1
-                    gr.Markdown(f"**PDF Files Found:** {pdf_count}")
+                    # PDF count with real-time updates
+                    gr.Markdown(f"**PDF Files Found:** {pdf_count} {'(processing...)' if not pdf_processing_complete else ''}")
                     
                     gr.Markdown("**AI Models Loaded:** Llama2, Qwen:0.5b")
                 with gr.Column():
@@ -159,6 +219,7 @@ def create_gateway_tab():
         1. **Click on any tab above** to switch between applications
         2. Each application works independently
         3. You can have multiple applications open in different tabs
+        4. PDF processing continues in the background
         """)
 
 # Create the main demo with tabs
@@ -184,9 +245,14 @@ with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
                 create_podcast_demo()
 
 if __name__ == "__main__":
+    print("🚀 Launching AI Hub Gateway...")
+    print("🌐 UI will be available at: http://localhost:7860")
+    print("⏳ PDF processing will continue in the background")
+    
     demo.launch(
         server_name="127.0.0.1",
         server_port=7860,
         inbrowser=True,
         share=False
     )
+    

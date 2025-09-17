@@ -69,6 +69,8 @@ echo - RAG Q^&A System ^(Documents^)
 echo - General AI Assistant ^(Chat^)
 echo - Combined AI Systems ^(Both^)
 echo.
+echo PDF processing will continue in the background.
+echo.
 
 python multi_ai_app.py
 

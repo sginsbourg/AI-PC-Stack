@@ -178,7 +178,7 @@ def create_podcast_demo():
                         stage2_output = gr.JSON(label="PDF Analysis Results")
                         stage2_status = gr.Textbox(label="Status")
         
-        # Connect the buttons
+        # Connect the buttons - FIXED THE TYPO HERE
         refresh_btn.click(
             fn=refresh_pdf_list,
             inputs=[],
@@ -187,7 +187,7 @@ def create_podcast_demo():
         
         stage1_btn.click(
             fn=stage1_select_pdf,
-            inputs=[极dropdown],
+            inputs=[pdf_dropdown],  # FIXED: Changed 极dropdown to pdf_dropdown
             outputs=[stage1_output, current_pdf_data, stage1_status]
         )
         
@@ -198,3 +198,4 @@ def create_podcast_demo():
         )
     
     return podcast_demo
+    

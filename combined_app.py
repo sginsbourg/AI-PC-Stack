@@ -41,7 +41,7 @@ def create_combined_demo():
         gr.Markdown("# 🤖 Combined AI Systems")
         gr.Markdown("### Get answers from both RAG and General AI")
         
-        with gr.R极():
+        with gr.Row():  # FIXED: Changed R极 to Row
             with gr.Column():
                 combined_input = gr.Textbox(
                     label="Your Question",
@@ -64,3 +64,4 @@ def create_combined_demo():
         )
     
     return combined_demo
+    

@@ -10,6 +10,33 @@ import re
 import sys
 import time
 
+def create_rag_system_async():
+    """
+    Asynchronously sets up a RAG system using local documents.
+    Returns a future-like object that can be checked for completion.
+    """
+    def _create_rag_async():
+        show_progress("Starting async RAG system initialization")
+        return create_rag_system()
+    
+    # Start the RAG creation in a separate thread
+    import threading
+    from concurrent.futures import Future
+    
+    future = Future()
+    
+    def _worker():
+        try:
+            result = _create_rag_async()
+            future.set_result(result)
+        except Exception as e:
+            future.set_exception(e)
+    
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    
+    return future
+
 def show_progress(message, duration=0.5):
     """
     Display a progress message with animated dots
