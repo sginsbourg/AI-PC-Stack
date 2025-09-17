@@ -47,13 +47,25 @@ python -m pip install -r requirements.txt --quiet || (
 )
 echo ✓ All Python libraries installed successfully
 
+echo Checking TextGen WebUI...
+curl -s -f http://127.0.0.1:5001 >nul 2>&1 || (
+    echo WARNING: TextGen WebUI not responding on http://127.0.0.1:5001. Continuing anyway.
+)
+
+echo Checking Ollama server...
+tasklist /fi "imagename eq ollama.exe" | find "ollama.exe" > nul || (
+    echo WARNING: Ollama server not running. Attempting to start...
+    start /B ollama serve
+    timeout /t 10 /nobreak >nul
+)
+
 echo.
 echo ========================================
 echo        STARTING AI HUB GATEWAY
 echo ========================================
 echo.
 echo Launching AI Hub Gateway...
-echo URL: http://localhost:7860
+echo URL: http://localhost:7860 (or next available port)
 echo.
 echo The gateway will give you access to:
 echo - Podcast Generator (Audio)

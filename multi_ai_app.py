@@ -1,3 +1,4 @@
+
 import gradio as gr
 import os
 import threading
@@ -37,7 +38,6 @@ except ImportError:
     podcast_available = False
     print("Podcast app not available")
 
-# Add multi-agent import
 try:
     from agent_system import create_multi_agent_demo
     multi_agent_available = True
@@ -101,18 +101,16 @@ def start_textgen_webui():
         return
     
     try:
-        # Change to textgen directory and start server
         os.chdir(TEXTGEN_PATH)
-        # Run server.py with listen and custom port; assumes requirements are installed in its env
         cmd = [
             'python', 'server.py',
             '--listen',
             f'--port={TEXTGEN_PORT}',
-            '--api'  # Enable API if needed
+            '--api'
         ]
         textgen_process = subprocess.Popen(cmd, cwd=TEXTGEN_PATH, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(f"Started TextGen WebUI on http://127.0.0.1:{TEXTGEN_PORT}")
-        time.sleep(5)  # Give it time to start
+        time.sleep(5)
     except Exception as e:
         print(f"Error starting TextGen WebUI: {e}")
 
@@ -122,7 +120,6 @@ def background_pdf_processing():
     
     show_progress("Starting background PDF processing")
     
-    # Check PDF directory and count files
     pdf_path = r"C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\pdf"
     pdf_files = []
     
@@ -135,20 +132,16 @@ def background_pdf_processing():
     pdf_count = len(pdf_files)
     processed_count = 0
     
-    # Process each PDF with progress tracking
     for pdf_file in pdf_files:
         try:
-            # Simulate processing each PDF
-            time.sleep(0.5)  # Simulate work
+            time.sleep(0.5)
             processed_count += 1
-            
         except Exception as e:
             print(f"Error processing {pdf_file}: {e}")
     
     pdf_processing_complete = True
     show_progress(f"Background processing complete. Processed {pdf_count} PDFs")
     
-    # After PDFs are processed, initialize RAG system if needed
     if rag_available and pdf_count > 0:
         show_progress("Initializing RAG system in background")
         try:
@@ -257,7 +250,6 @@ def create_enhanced_gateway_tab():
             elem_classes=["card"]
         )
         
-        # System status section
         with gr.Row():
             with gr.Column(scale=2):
                 gr.Markdown("### System Status", elem_classes=["card", "card-header"])
@@ -293,13 +285,11 @@ def create_enhanced_gateway_tab():
                     elem_classes=["card"]
                 )
         
-        # Action buttons
         with gr.Row(elem_classes=["button-group"]):
             refresh_btn = gr.Button("🔄 Refresh", variant="primary")
             settings_btn = gr.Button("⚙️ Settings", variant="secondary")
             help_btn = gr.Button("❓ Help", variant="secondary")
         
-        # Tutorial section
         with gr.Accordion("📚 Getting Started Guide", open=False, elem_classes=["accordion"]):
             gr.Markdown("""
             ### How to make the most of your AI Hub:
@@ -316,26 +306,21 @@ def create_enhanced_gateway_tab():
             **Pro Tip**: The system processes PDFs in the background. You can start using other features immediately!
             """)
         
-        # Add JavaScript for real-time updates
         gr.HTML("""
         <script>
-        // Function to update progress bar
         function updateProgress() {
             fetch('http://localhost:5000/progress')
                 .then(response => response.json())
                 .then(data => {
-                    // Update progress bar if it exists
                     const progressBar = document.querySelector('input[type="range"]');
                     if (progressBar && data.progress) {
                         progressBar.value = data.progress;
                         progressBar.previousElementSibling.innerText = `PDF Processing Progress: ${Math.round(data.progress)}%`;
                     }
                     
-                    // Update system stats
                     fetch('http://localhost:5000/system')
                         .then(response => response.json())
                         .then(systemData => {
-                            // Update CPU and memory usage
                             const cpuSlider = document.querySelector('input[aria-label="CPU Usage %"]');
                             const memorySlider = document.querySelector('input[aria-label="Memory Usage %"]');
                             
@@ -353,7 +338,6 @@ def create_enhanced_gateway_tab():
                 });
         }
         
-        // Start progress updates when page loads
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(updateProgress, 1000);
         });
@@ -396,7 +380,6 @@ with gr.Blocks(css=css, title="AI Hub - Application Gateway") as demo:
             with gr.TabItem("🤖 Multi-Agent", id="multi_agent"):
                 create_multi_agent_demo()
 
-        # New tab for Text Generation WebUI
         with gr.TabItem("🗣️ Text Generation UI", id="textgen"):
             gr.Markdown("# 🗣️ Oobabooga Text Generation WebUI")
             gr.Markdown("### Advanced LLM Interface for Text Generation")
@@ -411,20 +394,35 @@ if __name__ == "__main__":
     print("🚀 Launching AI Hub Gateway...")
     print("🌐 UI will be available at: http://localhost:7860")
     print("📊 Status API available at: http://localhost:5000")
-    print("⏳ PDF processing will continue in the background")
     print(f"🗣️ TextGen WebUI will launch on: http://127.0.0.1:{TEXTGEN_PORT}")
     
     # Start TextGen WebUI in background
     start_textgen_webui()
     
-    demo.launch(
-        server_name="127.0.0.1",
-        server_port=7860,
-        inbrowser=True,
-        share=False
-    )
+    # Try a range of ports to avoid conflicts
+    port_range = range(7860, 7870)
+    server_launched = False
+    for port in port_range:
+        try:
+            print(f"Attempting to launch on port {port}...")
+            demo.launch(
+                server_name="127.0.0.1",
+                server_port=port,
+                inbrowser=True,
+                share=False,
+                prevent_thread_lock=True
+            )
+            server_launched = True
+            print(f"✓ AI Hub launched successfully on http://127.0.0.1:{port}")
+            break
+        except OSError as e:
+            print(f"Port {port} is in use, trying next port...")
+            continue
+    
+    if not server_launched:
+        print("ERROR: Could not find an available port in range 7860-7869.")
+        print("Please ensure no other applications are using these ports and try again.")
     
     # Cleanup on exit
     if textgen_process:
         textgen_process.terminate()
-        
