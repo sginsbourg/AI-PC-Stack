@@ -44,67 +44,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Hub Dashboard</title>
     <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
-        <h1 id="header">AI Hub Dashboard</h1>
-        <div id="apps-container" class="apps-container"></div>
-        <div class="row">
-            <div class="column column-2">
-                <h3 id="form-title">Add New Application</h3>
-                <div class="form-row">
-                    <input type="text" id="app-name" placeholder="Enter application name">
-                    <input type="text" id="app-file" placeholder="app.py or script.bat">
+        <header>
+            <h1>AI Hub Dashboard</h1>
+        </header>
+        <main>
+            <section id="apps-container" class="apps-container"></section>
+            <section class="form-section">
+                <div class="form-card">
+                    <h2 id="form-title">Add New Application</h2>
+                    <div class="form-group">
+                        <label for="app-name">Application Name</label>
+                        <input type="text" id="app-name" placeholder="Enter application name">
+                    </div>
+                    <div class="form-group">
+                        <label for="app-file">Filename</label>
+                        <input type="text" id="app-file" placeholder="app.py or script.bat">
+                    </div>
+                    <div class="form-group">
+                        <label for="app-url">URL (optional)</label>
+                        <input type="text" id="app-url" placeholder="http://localhost:3000">
+                    </div>
+                    <div class="form-group">
+                        <label for="app-delay">Launch Delay (seconds, optional)</label>
+                        <input type="number" id="app-delay" placeholder="0" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="app-desc">Description (optional)</label>
+                        <textarea id="app-desc" placeholder="Enter application description"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn primary" id="submit-btn" onclick="submitApp()">➕ Add Application</button>
+                        <button class="btn secondary" onclick="clearForm()">🗑️ Clear Form</button>
+                    </div>
+                    <input type="hidden" id="edit-index" value="-1">
                 </div>
-                <input type="text" id="app-url" placeholder="http://localhost:3000">
-                <textarea id="app-desc" placeholder="Enter application description"></textarea>
-                <div class="form-row">
-                    <button class="btn primary" id="submit-btn" onclick="submitApp()">➕ Add Application</button>
-                    <button class="btn secondary" onclick="clearForm()">🗑️ Clear Form</button>
+                <div class="config-card">
+                    <h2>Configuration</h2>
+                    <div class="config-actions">
+                        <button class="btn primary" onclick="saveConfig()">💾 Save Configuration</button>
+                        <button class="btn secondary" onclick="loadConfigUI()">🔄 Load Configuration</button>
+                    </div>
+                    <div id="status" class="status">Ready</div>
                 </div>
-                <input type="hidden" id="edit-index" value="-1">
-            </div>
-            <div class="column column-1">
-                <h3>Configuration</h3>
-                <button class="btn primary" onclick="saveConfig()">💾 Save Configuration</button>
-                <div id="status" class="status">Ready</div>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
     <script>
-        let apps = []; // Cache apps locally for quick access
+        let apps = [];
 
         async function fetchApps() {
             try {
                 const response = await fetch('/api/apps');
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+                }
                 apps = await response.json();
+                if (!Array.isArray(apps)) {
+                    throw new Error('Received invalid data: Expected an array of applications');
+                }
                 renderApps(apps);
             } catch (error) {
-                console.error('Error fetching apps:', error);
-                setStatus('Error: Failed to load applications.', 'error');
+                console.error('Error fetching apps:', error.message);
+                setStatus(`❌ Error: Failed to load applications: ${error.message}`, 'error');
             }
         }
 
         function renderApps(apps) {
             const container = document.getElementById('apps-container');
             if (!apps || apps.length === 0) {
-                container.innerHTML = "<div class='no-apps'>No applications available. Add applications using the form below.</div>";
+                container.innerHTML = "<div class='no-apps'>No applications available. Add one below.</div>";
                 return;
             }
             container.innerHTML = apps.map((app, index) => `
                 <div class="app-card" id="app-card-${index}">
                     <div class="card-header">
-                        <h3>${app.app_name}</h3>
+                        <h3>${app.app_name || 'Unnamed'}</h3>
                     </div>
                     <div class="card-content">
                         <p><strong>Description:</strong> ${app.description || 'No description'}</p>
                         <p><strong>Filename:</strong> ${app.filename || 'No file specified'}</p>
                         <p><strong>URL:</strong> ${app.url || 'No URL specified'}</p>
+                        <p><strong>Launch Delay:</strong> ${app.launch_delay || 0} seconds</p>
                         <div class="card-actions">
-                            <button class="launch-btn" onclick="launchApp(${index})">🚀 Launch</button>
-                            <button class="open-btn" onclick="openAppUrl(${index})" ${!app.url ? 'disabled' : ''}>🌐 Open</button>
-                            <button class="edit-btn" onclick="editApp(${index})">✏️ Edit</button>
-                            <button class="delete-btn" onclick="deleteApp(${index})">🗑️ Delete</button>
+                            <button class="btn launch-btn" onclick="launchApp(${index})" title="Launch application">🚀 Launch</button>
+                            <button class="btn open-btn" onclick="openAppUrl(${index})" ${!app.url ? 'disabled' : ''} title="Open URL in new tab">🌐 Open</button>
+                            <button class="btn edit-btn" onclick="editApp(${index})" title="Edit application">✏️ Edit</button>
+                            <button class="btn delete-btn" onclick="deleteApp(${index})" title="Delete application">🗑️ Delete</button>
                         </div>
                     </div>
                 </div>
@@ -112,91 +141,94 @@
         }
 
         async function submitApp() {
-            const name = document.getElementById('app-name').value;
-            const desc = document.getElementById('app-desc').value;
-            const filename = document.getElementById('app-file').value;
-            const url = document.getElementById('app-url').value;
+            const name = document.getElementById('app-name').value.trim();
+            const desc = document.getElementById('app-desc').value.trim();
+            const filename = document.getElementById('app-file').value.trim();
+            const url = document.getElementById('app-url').value.trim();
+            const launchDelay = parseInt(document.getElementById('app-delay').value, 10) || 0;
             const editIndex = parseInt(document.getElementById('edit-index').value, 10);
 
             if (!name) {
-                setStatus('Error: Application name is required!', 'error');
+                setStatus('❌ Error: Application name is required!', 'error');
                 return;
             }
 
             try {
                 let response;
                 if (editIndex >= 0) {
-                    // Update existing app
                     response = await fetch(`/api/apps/${editIndex}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ app_name: name, description: desc, filename, url })
+                        body: JSON.stringify({ app_name: name, description: desc, filename, url, launch_delay: launchDelay })
                     });
                 } else {
-                    // Add new app
                     response = await fetch('/api/apps', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ app_name: name, description: desc, filename, url })
+                        body: JSON.stringify({ app_name: name, description: desc, filename, url, launch_delay: launchDelay })
                     });
                 }
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+                }
                 const result = await response.json();
-                setStatus(result.message, result.success ? 'success' : 'error');
+                setStatus(result.success ? `✅ ${result.message}` : `❌ ${result.message}`, result.success ? 'success' : 'error');
                 if (result.success) {
                     apps = result.apps;
                     renderApps(apps);
                     clearForm();
                 }
             } catch (error) {
-                console.error(`Error ${editIndex >= 0 ? 'updating' : 'adding'} app:`, error);
-                setStatus(`Error: Failed to ${editIndex >= 0 ? 'update' : 'add'} application: ${error.message}`, 'error');
+                console.error(`Error ${editIndex >= 0 ? 'updating' : 'adding'} app:`, error.message);
+                setStatus(`❌ Error: Failed to ${editIndex >= 0 ? 'update' : 'add'} application: ${error.message}`, 'error');
             }
         }
 
         function editApp(index) {
             if (index < 0 || index >= apps.length) {
-                setStatus('Error: Application not found.', 'error');
+                setStatus('❌ Error: Application not found.', 'error');
                 return;
             }
             const app = apps[index];
-            document.getElementById('app-name').value = app.app_name;
-            document.getElementById('app-desc').value = app.description;
-            document.getElementById('app-file').value = app.filename;
-            document.getElementById('app-url').value = app.url;
+            document.getElementById('app-name').value = app.app_name || '';
+            document.getElementById('app-desc').value = app.description || '';
+            document.getElementById('app-file').value = app.filename || '';
+            document.getElementById('app-url').value = app.url || '';
+            document.getElementById('app-delay').value = app.launch_delay || 0;
             document.getElementById('edit-index').value = index;
             document.getElementById('form-title').textContent = 'Edit Application';
             document.getElementById('submit-btn').textContent = '💾 Update Application';
-            setStatus('Editing application: ' + app.app_name, 'info');
+            setStatus(`✏️ Editing application: ${app.app_name}`, 'info');
         }
 
         async function deleteApp(index) {
             if (!confirm('Are you sure you want to delete this application?')) return;
             try {
                 const response = await fetch(`/api/apps/${index}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+                }
                 const result = await response.json();
-                setStatus(result.message, result.success ? 'success' : 'error');
+                setStatus(result.success ? `✅ ${result.message}` : `❌ ${result.message}`, result.success ? 'success' : 'error');
                 if (result.success) {
                     apps = result.apps;
                     renderApps(apps);
                 }
             } catch (error) {
-                console.error('Error deleting app:', error);
-                setStatus(`Error: Failed to delete application: ${error.message}`, 'error');
+                console.error('Error deleting app:', error.message);
+                setStatus(`❌ Error: Failed to delete application: ${error.message}`, 'error');
             }
         }
 
         async function launchApp(index) {
             try {
                 if (index < 0 || index >= apps.length) {
-                    setStatus('Error: Application not found.', 'error');
-                    console.error(`Invalid index: ${index}, Apps length: ${apps.length}`);
-                    return;
+                    throw new Error('Application not found.');
                 }
-                const filename = apps[index].filename;
+                const app = apps[index];
+                const filename = app.filename;
                 if (!filename) {
-                    setStatus('Error: No filename specified for this application.', 'error');
-                    console.error(`No filename for app at index: ${index}`);
-                    return;
+                    throw new Error('No filename specified for this application.');
                 }
                 console.log(`Launching app with filename: ${filename}`);
                 const launchResponse = await fetch('/api/launch', {
@@ -204,45 +236,73 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ filename })
                 });
+                if (!launchResponse.ok) {
+                    throw new Error(`HTTP error ${launchResponse.status}: ${launchResponse.statusText}`);
+                }
                 const result = await launchResponse.json();
-                setStatus(result.message, result.success ? 'success' : 'error');
+                if (result.success) {
+                    setStatus(`✅ ${result.message}`, 'success');
+                    if (app.url) {
+                        setTimeout(() => {
+                            openAppUrl(index);
+                        }, (app.launch_delay || 0) * 1000);
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
             } catch (error) {
-                console.error('Error launching app:', error);
-                setStatus(`Error: Failed to launch application: ${error.message}`, 'error');
+                console.error('Error launching app:', error.message);
+                setStatus(`❌ Error: Failed to launch application: ${error.message}`, 'error');
             }
         }
 
         function openAppUrl(index) {
             if (index < 0 || index >= apps.length) {
-                setStatus('Error: Application not found.', 'error');
+                setStatus('❌ Error: Application not found.', 'error');
                 console.error(`Invalid index: ${index}, Apps length: ${apps.length}`);
                 return;
             }
             const url = apps[index].url;
             if (!url) {
-                setStatus('Error: No URL specified for this application.', 'error');
+                setStatus('❌ Error: No URL specified for this application.', 'error');
                 console.error(`No URL for app at index: ${index}`);
                 return;
             }
             console.log(`Opening URL: ${url}`);
             window.open(url, '_blank');
-            setStatus(`Opened URL: ${url}`, 'success');
+            setStatus(`🌐 Opened URL: ${url}`, 'success');
         }
 
         async function saveConfig() {
             try {
                 const response = await fetch('/api/apps');
-                const apps = await response.json();
-                const saveResponse = await fetch('/api/apps', {
-                    method: 'POST',
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+                }
+                const appsToSave = await response.json();
+                const saveResponse = await fetch('/api/save-config', {
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(apps)
+                    body: JSON.stringify({ apps: appsToSave })
                 });
+                if (!saveResponse.ok) {
+                    throw new Error(`HTTP error ${saveResponse.status}: ${saveResponse.statusText}`);
+                }
                 const result = await saveResponse.json();
-                setStatus(result.message, result.success ? 'success' : 'error');
+                setStatus(result.success ? `✅ ${result.message}` : `❌ ${result.message}`, result.success ? 'success' : 'error');
             } catch (error) {
-                console.error('Error saving config:', error);
-                setStatus(`Error: Failed to save configuration: ${error.message}`, 'error');
+                console.error('Error saving config:', error.message);
+                setStatus(`❌ Error: Failed to save configuration: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadConfigUI() {
+            try {
+                await fetchApps();
+                setStatus('✅ Configuration loaded successfully!', 'success');
+            } catch (error) {
+                console.error('Error loading config:', error.message);
+                setStatus(`❌ Error: Failed to load configuration: ${error.message}`, 'error');
             }
         }
 
@@ -251,19 +311,25 @@
             document.getElementById('app-desc').value = '';
             document.getElementById('app-file').value = '';
             document.getElementById('app-url').value = '';
+            document.getElementById('app-delay').value = '';
             document.getElementById('edit-index').value = '-1';
             document.getElementById('form-title').textContent = 'Add New Application';
             document.getElementById('submit-btn').textContent = '➕ Add Application';
-            setStatus('Form cleared.', 'success');
+            setStatus('✅ Form cleared.', 'success');
         }
 
         function setStatus(message, type) {
             const status = document.getElementById('status');
             status.textContent = message;
             status.className = `status ${type}`;
+            status.style.opacity = '0';
+            status.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+                status.style.opacity = '1';
+                status.style.transform = 'translateY(0)';
+            }, 100);
         }
 
-        // Load apps on page load
         window.onload = fetchApps;
     </script>
 </body>

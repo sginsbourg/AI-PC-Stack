@@ -30,31 +30,32 @@ app.use(express.static(__dirname, { index: false })); // Serve static files, dis
 // Load configuration
 function loadConfig() {
     try {
-        if (fs.existsSync(CONFIG_FILE)) {
-            const data = fs.readJsonSync(CONFIG_FILE);
-            if (!Array.isArray(data)) {
-                throw new Error('config.json must contain a list');
-            }
-            // Ensure all apps have required fields
-            return data.map(app => ({
-                app_name: app.app_name || 'Unnamed',
-                description: app.description || '',
-                filename: app.filename || '',
-                url: app.url || '', // New URL field
-                status: app.status || '',
-                status_class: app.status_class || ''
-            }));
+        if (!fs.existsSync(CONFIG_FILE)) {
+            logger.info('config.json not found. Creating default configuration.');
+            const defaultConfig = [
+                { app_name: 'Application 1', description: 'A default application.', filename: 'app1.py', url: 'http://localhost:3000', launch_delay: 0, status: '', status_class: '' },
+                { app_name: 'Application 2', description: 'Another default application.', filename: 'app2.bat', url: 'http://localhost:3001', launch_delay: 0, status: '', status_class: '' }
+            ];
+            fs.writeJsonSync(CONFIG_FILE, defaultConfig, { spaces: 2 });
+            return defaultConfig;
         }
-        logger.info('config.json not found or invalid. Creating default configuration.');
-        const defaultConfig = [
-            { app_name: 'Application 1', description: 'A default application.', filename: 'app1.py', url: 'http://localhost:3000', status: '', status_class: '' },
-            { app_name: 'Application 2', description: 'Another default application.', filename: 'app2.bat', url: 'http://localhost:3001', status: '', status_class: '' }
-        ];
-        fs.writeJsonSync(CONFIG_FILE, defaultConfig, { spaces: 2 });
-        return defaultConfig;
+        const data = fs.readJsonSync(CONFIG_FILE);
+        if (!Array.isArray(data)) {
+            throw new Error('config.json must contain a list of applications');
+        }
+        // Ensure all apps have required fields
+        return data.map(app => ({
+            app_name: app.app_name ? String(app.app_name).trim() : 'Unnamed',
+            description: app.description ? String(app.description).trim() : '',
+            filename: app.filename ? String(app.filename).trim() : '',
+            url: app.url ? String(app.url).trim() : '',
+            launch_delay: typeof app.launch_delay === 'number' ? Math.max(0, app.launch_delay) : 0,
+            status: app.status || '',
+            status_class: app.status_class || ''
+        }));
     } catch (error) {
         logger.error(`Failed to load or parse config.json: ${error.message}`);
-        return [];
+        throw new Error(`Failed to load config.json: ${error.message}`);
     }
 }
 
@@ -90,9 +91,12 @@ function launchApp(filename) {
         return { success: false, message: `Error: File '${resolvedPath}' not found.` };
     }
 
-    if (!fs.accessSync(resolvedPath, fs.constants.X_OK)) {
-        logger.error(`File is not executable: ${resolvedPath}`);
-        return { success: false, message: `Error: File '${resolvedPath}' is not executable.` };
+    // Skip execute permission check for .bat files on Windows; check read access only
+    try {
+        fs.accessSync(resolvedPath, fs.constants.R_OK); // Read access for all files
+    } catch (error) {
+        logger.error(`File is not readable: ${resolvedPath}: ${error.message}`);
+        return { success: false, message: `Error: File '${resolvedPath}' is not readable: ${error.message}` };
     }
 
     if (!resolvedPath.toLowerCase().endsWith('.py') && !resolvedPath.toLowerCase().endsWith('.bat')) {
@@ -105,12 +109,22 @@ function launchApp(filename) {
         logger.info(`Spawning process with cwd: ${cwd}`);
         let child;
         if (resolvedPath.toLowerCase().endsWith('.py')) {
-            child = spawn('python', [resolvedPath], { detached: true, stdio: ['ignore', 'pipe', 'pipe'], cwd });
+            child = spawn('python', [resolvedPath], { 
+                detached: true, 
+                stdio: ['ignore', 'pipe', 'pipe'], 
+                cwd, 
+                shell: true,
+                windowsHide: true
+            });
         } else {
-            // Use cmd.exe /c for .bat files to ensure proper execution
-            child = spawn('cmd.exe', ['/c', resolvedPath], { detached: true, stdio: ['ignore', 'pipe', 'pipe'], cwd });
+            child = spawn('cmd.exe', ['/c', resolvedPath], { 
+                detached: true, 
+                stdio: ['ignore', 'pipe', 'pipe'], 
+                cwd, 
+                shell: true,
+                windowsHide: true
+            });
         }
-        // Capture output for debugging
         let errorOutput = '';
         child.stderr.on('data', (data) => {
             errorOutput += data.toString();
@@ -121,6 +135,8 @@ function launchApp(filename) {
         child.on('close', (code) => {
             if (code !== 0) {
                 logger.error(`Process exited with code ${code}: ${errorOutput}`);
+            } else {
+                logger.info(`Process completed successfully: ${resolvedPath}`);
             }
         });
         child.unref();
@@ -134,69 +150,125 @@ function launchApp(filename) {
 
 // API Endpoints
 app.get('/api/apps', (req, res) => {
-    const apps = loadConfig();
-    logger.info(`Fetched ${apps.length} apps from config.json`);
-    res.json(apps);
+    try {
+        const apps = loadConfig();
+        logger.info(`Fetched ${apps.length} apps from config.json`);
+        res.json(apps);
+    } catch (error) {
+        logger.error(`Error in /api/apps: ${error.message}`);
+        res.status(500).json({ success: false, message: `Failed to fetch apps: ${error.message}` });
+    }
 });
 
 app.post('/api/apps', (req, res) => {
-    const { app_name, description, filename, url } = req.body;
+    const { app_name, description, filename, url, launch_delay } = req.body;
     if (!app_name) {
         logger.error('Application name is required.');
         return res.status(400).json({ success: false, message: 'Error: Application name is required!' });
     }
-    const apps = loadConfig();
-    const newApp = { app_name, description: description || '', filename: filename || '', url: url || '', status: '', status_class: '' };
-    apps.push(newApp);
-    const saveResult = saveConfig(apps);
-    if (saveResult.success) {
-        logger.info(`Application '${app_name}' added successfully.`);
-        res.json({ success: true, message: `Application '${app_name}' added successfully!`, apps });
-    } else {
-        res.status(500).json(saveResult);
+    try {
+        const apps = loadConfig();
+        const newApp = { 
+            app_name, 
+            description: description || '', 
+            filename: filename || '', 
+            url: url || '', 
+            launch_delay: typeof launch_delay === 'number' ? Math.max(0, launch_delay) : 0,
+            status: '', 
+            status_class: '' 
+        };
+        apps.push(newApp);
+        const saveResult = saveConfig(apps);
+        if (saveResult.success) {
+            logger.info(`Application '${app_name}' added successfully.`);
+            res.json({ success: true, message: `Application '${app_name}' added successfully!`, apps });
+        } else {
+            res.status(500).json(saveResult);
+        }
+    } catch (error) {
+        logger.error(`Error adding app: ${error.message}`);
+        res.status(500).json({ success: false, message: `Failed to add application: ${error.message}` });
     }
 });
 
 app.put('/api/apps/:index', (req, res) => {
     const index = parseInt(req.params.index, 10);
-    const { app_name, description, filename, url } = req.body;
+    const { app_name, description, filename, url, launch_delay } = req.body;
     if (!app_name) {
         logger.error('Application name is required for update.');
         return res.status(400).json({ success: false, message: 'Error: Application name is required!' });
     }
-    const apps = loadConfig();
-    if (index >= 0 && index < apps.length) {
-        const oldName = apps[index].app_name;
-        apps[index] = { app_name, description: description || '', filename: filename || '', url: url || '', status: '', status_class: '' };
-        const saveResult = saveConfig(apps);
-        if (saveResult.success) {
-            logger.info(`Application '${oldName}' updated to '${app_name}'.`);
-            res.json({ success: true, message: `Application '${app_name}' updated successfully!`, apps });
+    try {
+        const apps = loadConfig();
+        if (index >= 0 && index < apps.length) {
+            const oldName = apps[index].app_name;
+            apps[index] = { 
+                app_name, 
+                description: description || '', 
+                filename: filename || '', 
+                url: url || '', 
+                launch_delay: typeof launch_delay === 'number' ? Math.max(0, launch_delay) : 0,
+                status: '', 
+                status_class: '' 
+            };
+            const saveResult = saveConfig(apps);
+            if (saveResult.success) {
+                logger.info(`Application '${oldName}' updated to '${app_name}'.`);
+                res.json({ success: true, message: `Application '${app_name}' updated successfully!`, apps });
+            } else {
+                res.status(500).json(saveResult);
+            }
         } else {
-            res.status(500).json(saveResult);
+            logger.error(`Invalid application index for update: ${index}`);
+            res.status(400).json({ success: false, message: 'Error: Invalid application index!' });
         }
-    } else {
-        logger.error(`Invalid application index for update: ${index}`);
-        res.status(400).json({ success: false, message: 'Error: Invalid application index!' });
+    } catch (error) {
+        logger.error(`Error updating app: ${error.message}`);
+        res.status(500).json({ success: false, message: `Failed to update application: ${error.message}` });
     }
 });
 
 app.delete('/api/apps/:index', (req, res) => {
     const index = parseInt(req.params.index, 10);
-    const apps = loadConfig();
-    if (index >= 0 && index < apps.length) {
-        const deletedName = apps[index].app_name;
-        apps.splice(index, 1);
-        const saveResult = saveConfig(apps);
+    try {
+        const apps = loadConfig();
+        if (index >= 0 && index < apps.length) {
+            const deletedName = apps[index].app_name;
+            apps.splice(index, 1);
+            const saveResult = saveConfig(apps);
+            if (saveResult.success) {
+                logger.info(`Application '${deletedName}' deleted successfully.`);
+                res.json({ success: true, message: `Application '${deletedName}' deleted successfully!`, apps });
+            } else {
+                res.status(500).json(saveResult);
+            }
+        } else {
+            logger.error(`Invalid application index: ${index}`);
+            res.status(400).json({ success: false, message: 'Error: Invalid application index!' });
+        }
+    } catch (error) {
+        logger.error(`Error deleting app: ${error.message}`);
+        res.status(500).json({ success: false, message: `Failed to delete application: ${error.message}` });
+    }
+});
+
+app.put('/api/save-config', (req, res) => {
+    const { apps: appsToSave } = req.body;
+    if (!Array.isArray(appsToSave)) {
+        logger.error('Invalid request: apps must be an array.');
+        return res.status(400).json({ success: false, message: 'Error: Invalid apps array provided.' });
+    }
+    try {
+        const saveResult = saveConfig(appsToSave);
         if (saveResult.success) {
-            logger.info(`Application '${deletedName}' deleted successfully.`);
-            res.json({ success: true, message: `Application '${deletedName}' deleted successfully!`, apps });
+            logger.info(`Configuration saved successfully with ${appsToSave.length} apps.`);
+            res.json({ success: true, message: saveResult.message, apps: appsToSave });
         } else {
             res.status(500).json(saveResult);
         }
-    } else {
-        logger.error(`Invalid application index: ${index}`);
-        res.status(400).json({ success: false, message: 'Error: Invalid application index!' });
+    } catch (error) {
+        logger.error(`Error saving config: ${error.message}`);
+        res.status(500).json({ success: false, message: `Failed to save configuration: ${error.message}` });
     }
 });
 
@@ -214,7 +286,6 @@ app.get('/', (req, res) => {
 // Start server
 app.listen(PORT, '127.0.0.1', () => {
     logger.info(`Server running at http://127.0.0.1:${PORT}`);
-    // Open browser
     const { exec } = require('child_process');
     const isWindows = process.platform === 'win32';
     const command = isWindows ? `start http://127.0.0.1:${PORT}` : `open http://127.0.0.1:${PORT}`;
