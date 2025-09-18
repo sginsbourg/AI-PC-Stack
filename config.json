@@ -1,42 +1,26 @@
 [
-  {
-    "app_name": "Application 1",
-    "description": "",
-    "filename": "",
-    "status": "",
-    "status_class": ""
-  },
-  {
-    "app_name": "Application 2",
-    "description": "",
-    "filename": "",
-    "status": "",
-    "status_class": ""
-  },
-  {
-    "app_name": "Application 3",
-    "description": "",
-    "filename": "",
-    "status": "",
-    "status_class": ""
-  },
-  {
-    "app_name": "Application 4",
-    "description": "",
-    "filename": "",
-    "status": "",
-    "status_class": ""
-  },
-  {
-    "app_name": "Application 5",
-    "description": "",
-    "filename": "",
-    "status": "",
-    "status_class": ""
-  },
-  {
-    "app_name": "Text Generation Web UI",
-    "description": "A Gradio web UI for Large Language Models",
-    "filename": "C:\\Users\\sgins\\AI_STACK\\tg-webui\\start_windows.bat"
-  }
+    {
+        "app_name": "Application 1",
+        "description": "A default application.",
+        "filename": "app1.py",
+        "url": "http://localhost:3000",
+        "status": "",
+        "status_class": ""
+    },
+    {
+        "app_name": "Application 2",
+        "description": "Another default application.",
+        "filename": "app2.bat",
+        "url": "http://localhost:3001",
+        "status": "",
+        "status_class": ""
+    },
+    {
+        "app_name": "Text Generation Web UI",
+        "description": "A Gradio web UI for Large Language Models",
+        "filename": "C:\\Users\\sgins\\AI_STACK\\tg-webui\\start_windows.bat",
+        "url": "http://localhost:7861",
+        "status": "",
+        "status_class": ""
+    }
 ]

@@ -1,0 +1,270 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Hub Dashboard</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 id="header">AI Hub Dashboard</h1>
+        <div id="apps-container" class="apps-container"></div>
+        <div class="row">
+            <div class="column column-2">
+                <h3 id="form-title">Add New Application</h3>
+                <div class="form-row">
+                    <input type="text" id="app-name" placeholder="Enter application name">
+                    <input type="text" id="app-file" placeholder="app.py or script.bat">
+                </div>
+                <input type="text" id="app-url" placeholder="http://localhost:3000">
+                <textarea id="app-desc" placeholder="Enter application description"></textarea>
+                <div class="form-row">
+                    <button class="btn primary" id="submit-btn" onclick="submitApp()">➕ Add Application</button>
+                    <button class="btn secondary" onclick="clearForm()">🗑️ Clear Form</button>
+                </div>
+                <input type="hidden" id="edit-index" value="-1">
+            </div>
+            <div class="column column-1">
+                <h3>Configuration</h3>
+                <button class="btn primary" onclick="saveConfig()">💾 Save Configuration</button>
+                <div id="status" class="status">Ready</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let apps = []; // Cache apps locally for quick access
+
+        async function fetchApps() {
+            try {
+                const response = await fetch('/api/apps');
+                apps = await response.json();
+                renderApps(apps);
+            } catch (error) {
+                console.error('Error fetching apps:', error);
+                setStatus('Error: Failed to load applications.', 'error');
+            }
+        }
+
+        function renderApps(apps) {
+            const container = document.getElementById('apps-container');
+            if (!apps || apps.length === 0) {
+                container.innerHTML = "<div class='no-apps'>No applications available. Add applications using the form below.</div>";
+                return;
+            }
+            container.innerHTML = apps.map((app, index) => `
+                <div class="app-card" id="app-card-${index}">
+                    <div class="card-header">
+                        <h3>${app.app_name}</h3>
+                    </div>
+                    <div class="card-content">
+                        <p><strong>Description:</strong> ${app.description || 'No description'}</p>
+                        <p><strong>Filename:</strong> ${app.filename || 'No file specified'}</p>
+                        <p><strong>URL:</strong> ${app.url || 'No URL specified'}</p>
+                        <div class="card-actions">
+                            <button class="launch-btn" onclick="launchApp(${index})">🚀 Launch</button>
+                            <button class="open-btn" onclick="openAppUrl(${index})" ${!app.url ? 'disabled' : ''}>🌐 Open</button>
+                            <button class="edit-btn" onclick="editApp(${index})">✏️ Edit</button>
+                            <button class="delete-btn" onclick="deleteApp(${index})">🗑️ Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function submitApp() {
+            const name = document.getElementById('app-name').value;
+            const desc = document.getElementById('app-desc').value;
+            const filename = document.getElementById('app-file').value;
+            const url = document.getElementById('app-url').value;
+            const editIndex = parseInt(document.getElementById('edit-index').value, 10);
+
+            if (!name) {
+                setStatus('Error: Application name is required!', 'error');
+                return;
+            }
+
+            try {
+                let response;
+                if (editIndex >= 0) {
+                    // Update existing app
+                    response = await fetch(`/api/apps/${editIndex}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ app_name: name, description: desc, filename, url })
+                    });
+                } else {
+                    // Add new app
+                    response = await fetch('/api/apps', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ app_name: name, description: desc, filename, url })
+                    });
+                }
+                const result = await response.json();
+                setStatus(result.message, result.success ? 'success' : 'error');
+                if (result.success) {
+                    apps = result.apps;
+                    renderApps(apps);
+                    clearForm();
+                }
+            } catch (error) {
+                console.error(`Error ${editIndex >= 0 ? 'updating' : 'adding'} app:`, error);
+                setStatus(`Error: Failed to ${editIndex >= 0 ? 'update' : 'add'} application: ${error.message}`, 'error');
+            }
+        }
+
+        function editApp(index) {
+            if (index < 0 || index >= apps.length) {
+                setStatus('Error: Application not found.', 'error');
+                return;
+            }
+            const app = apps[index];
+            document.getElementById('app-name').value = app.app_name;
+            document.getElementById('app-desc').value = app.description;
+            document.getElementById('app-file').value = app.filename;
+            document.getElementById('app-url').value = app.url;
+            document.getElementById('edit-index').value = index;
+            document.getElementById('form-title').textContent = 'Edit Application';
+            document.getElementById('submit-btn').textContent = '💾 Update Application';
+            setStatus('Editing application: ' + app.app_name, 'info');
+        }
+
+        async function deleteApp(index) {
+            if (!confirm('Are you sure you want to delete this application?')) return;
+            try {
+                const response = await fetch(`/api/apps/${index}`, { method: 'DELETE' });
+                const result = await response.json();
+                setStatus(result.message, result.success ? 'success' : 'error');
+                if (result.success) {
+                    apps = result.apps;
+                    renderApps(apps);
+                }
+            } catch (error) {
+                console.error('Error deleting app:', error);
+                setStatus(`Error: Failed to delete application: ${error.message}`, 'error');
+            }
+        }
+
+        async function launchApp(index) {
+            try {
+                if (index < 0 || index >= apps.length) {
+                    setStatus('Error: Application not found.', 'error');
+                    console.error(`Invalid index: ${index}, Apps length: ${apps.length}`);
+                    return;
+                }
+                const filename = apps[index].filename;
+                if (!filename) {
+                    setStatus('Error: No filename specified for this application.', 'error');
+                    console.error(`No filename for app at index: ${index}`);
+                    return;
+                }
+                console.log(`Launching app with filename: ${filename}`);
+                const launchResponse = await fetch('/api/launch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename })
+                });
+                const result = await launchResponse.json();
+                setStatus(result.message, result.success ? 'success' : 'error');
+            } catch (error) {
+                console.error('Error launching app:', error);
+                setStatus(`Error: Failed to launch application: ${error.message}`, 'error');
+            }
+        }
+
+        function openAppUrl(index) {
+            if (index < 0 || index >= apps.length) {
+                setStatus('Error: Application not found.', 'error');
+                console.error(`Invalid index: ${index}, Apps length: ${apps.length}`);
+                return;
+            }
+            const url = apps[index].url;
+            if (!url) {
+                setStatus('Error: No URL specified for this application.', 'error');
+                console.error(`No URL for app at index: ${index}`);
+                return;
+            }
+            console.log(`Opening URL: ${url}`);
+            window.open(url, '_blank');
+            setStatus(`Opened URL: ${url}`, 'success');
+        }
+
+        async function saveConfig() {
+            try {
+                const response = await fetch('/api/apps');
+                const apps = await response.json();
+                const saveResponse = await fetch('/api/apps', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(apps)
+                });
+                const result = await saveResponse.json();
+                setStatus(result.message, result.success ? 'success' : 'error');
+            } catch (error) {
+                console.error('Error saving config:', error);
+                setStatus(`Error: Failed to save configuration: ${error.message}`, 'error');
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('app-name').value = '';
+            document.getElementById('app-desc').value = '';
+            document.getElementById('app-file').value = '';
+            document.getElementById('app-url').value = '';
+            document.getElementById('edit-index').value = '-1';
+            document.getElementById('form-title').textContent = 'Add New Application';
+            document.getElementById('submit-btn').textContent = '➕ Add Application';
+            setStatus('Form cleared.', 'success');
+        }
+
+        function setStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Load apps on page load
+        window.onload = fetchApps;
+    </script>
+</body>
+</html>
