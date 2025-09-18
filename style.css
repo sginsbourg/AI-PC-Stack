@@ -1,0 +1,144 @@
+/* style.css */
+body, .gradio-container {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+    color: #e2e8f0;
+    padding: 40px 20px;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+h1 {
+    font-weight: 800;
+    font-size: 2.8rem;
+    text-align: center;
+    margin-bottom: 30px;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    letter-spacing: -0.02em;
+}
+
+.container {
+    max-width: 1200px;
+    width: 100%;
+}
+
+.gr-row {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gr-row:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+}
+
+.gr-button {
+    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff !important;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.gr-button:hover {
+    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+    transform: scale(1.05);
+}
+
+.gr-button:active {
+    transform: scale(0.98);
+}
+
+.gr-textbox {
+    background-color: #ffffff;
+    color: #1f2937;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 1rem;
+    border: 1px solid #e5e7eb;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.2s ease;
+}
+
+.gr-textbox:focus {
+    border-color: #3b82f6;
+    outline: none;
+}
+
+.gr-textbox[readonly] {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.status-success {
+    background-color: #22c55e;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-weight: 600;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.status-error {
+    background-color: #ef4444;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-weight: 600;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+    .gr-row {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    .gr-button {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+    }
+    .gr-textbox {
+        font-size: 0.9rem;
+    }
+}
+
+/* Add button styling */
+#btn-add, #btn-save {
+    display: block;
+    margin: 20px auto;
+    width: fit-content;
+    padding: 14px 32px;
+    font-size: 1.1rem;
+}
+
+/* Status label */
+#save-status {
+    text-align: center;
+    max-width: 600px;
+    margin: 10px auto;
+}
