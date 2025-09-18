@@ -11,9 +11,9 @@
   },
   {
     "app_name": "Ollama Server",
-    "description": "Starts Ollama service for local LLMs (required for OpenManus)",
+    "description": "Starts Ollama service for local LLMs (required for OpenManus, MeloTTS, and Podcast Generator)",
     "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_ollama.bat",
-    "url": "http://localhost:11434",
+    "url": "http://localhost:11435",
     "launch_delay": 2,
     "prerequisites": [],
     "status": "",
@@ -23,21 +23,29 @@
     "app_name": "OpenManus + Ollama",
     "description": "OpenManus web UI integrated with local Ollama models",
     "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_openmanus.bat",
-    "url": "http://localhost:5000",
+    "url": "http://localhost:8501",
     "launch_delay": 5,
-    "prerequisites": [
-      "Ollama Server"
-    ],
+    "prerequisites": ["Ollama Server"],
     "status": "",
     "status_class": ""
   },
   {
     "app_name": "MeloTTS Voice Assistant",
-    "description": "Text-to-speech voice assistant using MeloTTS (generates audio in voice_tests folder)",
+    "description": "Text-to-speech voice assistant using MeloTTS with Ollama (outputs audio to voice_tests)",
     "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_melotts.bat",
     "url": "",
     "launch_delay": 0,
-    "prerequisites": [],
+    "prerequisites": ["Ollama Server"],
+    "status": "",
+    "status_class": ""
+  },
+  {
+    "app_name": "Podcast Generator",
+    "description": "AI Podcast Generator from PDF with research, script review, and upload",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_podcast_gen.bat",
+    "url": "http://localhost:3001",
+    "launch_delay": 3,
+    "prerequisites": ["Ollama Server"],
     "status": "",
     "status_class": ""
   }
