@@ -30,5 +30,15 @@
     ],
     "status": "",
     "status_class": ""
+  },
+  {
+    "app_name": "MeloTTS Voice Assistant",
+    "description": "Text-to-speech voice assistant using MeloTTS (generates audio in voice_tests folder)",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_melotts.bat",
+    "url": "",
+    "launch_delay": 0,
+    "prerequisites": [],
+    "status": "",
+    "status_class": ""
   }
 ]
