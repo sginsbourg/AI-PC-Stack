@@ -7,8 +7,8 @@
 
 body {
     font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #e0e7ff, #f3e8ff);
-    color: #1f2937;
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    color: #e5e7eb;
     min-height: 100vh;
     padding: 20px;
     line-height: 1.5;
@@ -28,8 +28,8 @@ header {
 h1 {
     font-size: 2.5rem;
     font-weight: 600;
-    color: #4f46e5;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* App Cards */
@@ -41,21 +41,21 @@ h1 {
 }
 
 .app-card {
-    background: white;
+    background: #1f2937;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     overflow: hidden;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .app-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .card-header {
-    background: linear-gradient(90deg, #4f46e5, #7c3aed);
-    color: white;
+    background: linear-gradient(90deg, #2563eb, #7c3aed);
+    color: #ffffff;
     padding: 1rem;
     text-align: center;
 }
@@ -79,7 +79,7 @@ h1 {
 }
 
 .card-content p strong {
-    color: #4b5563;
+    color: #d1d5db;
 }
 
 .card-actions {
@@ -98,9 +98,9 @@ h1 {
 }
 
 .form-card, .config-card {
-    background: white;
+    background: #1f2937;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     padding: 1.5rem;
     flex: 1;
     min-width: 300px;
@@ -108,7 +108,7 @@ h1 {
 
 .form-card h2, .config-card h2 {
     font-size: 1.5rem;
-    color: #4f46e5;
+    color: #60a5fa;
     margin-bottom: 1rem;
 }
 
@@ -120,23 +120,25 @@ h1 {
     display: block;
     font-size: 0.9rem;
     font-weight: 500;
-    color: #4b5563;
+    color: #d1d5db;
     margin-bottom: 0.25rem;
 }
 
 .form-group input, .form-group textarea {
     width: 100%;
     padding: 0.75rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid #4b5563;
     border-radius: 8px;
     font-size: 0.9rem;
+    background: #374151;
+    color: #e5e7eb;
     transition: border-color 0.3s ease;
 }
 
 .form-group input:focus, .form-group textarea:focus {
     outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
 }
 
 .form-group textarea {
@@ -144,16 +146,27 @@ h1 {
     resize: vertical;
 }
 
-.form-actions {
+.form-actions, .config-actions {
     display: flex;
     gap: 0.5rem;
 }
 
-/* Config Actions */
-.config-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+/* File Input */
+.import-btn {
+    background: #2563eb;
+    color: #ffffff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.import-btn:hover {
+    background: #1d4ed8;
+    transform: translateY(-2px);
 }
 
 /* Buttons */
@@ -172,26 +185,26 @@ h1 {
 }
 
 .btn.primary {
-    background: #4f46e5;
-    color: white;
+    background: #2563eb;
+    color: #ffffff;
 }
 
 .btn.primary:hover {
-    background: #4338ca;
+    background: #1d4ed8;
 }
 
 .btn.secondary {
-    background: #6b7280;
-    color: white;
+    background: #4b5563;
+    color: #ffffff;
 }
 
 .btn.secondary:hover {
-    background: #4b5563;
+    background: #374151;
 }
 
 .launch-btn {
     background: #10b981;
-    color: white;
+    color: #ffffff;
 }
 
 .launch-btn:hover {
@@ -200,7 +213,7 @@ h1 {
 
 .open-btn {
     background: #8b5cf6;
-    color: white;
+    color: #ffffff;
 }
 
 .open-btn:hover {
@@ -208,14 +221,14 @@ h1 {
 }
 
 .open-btn:disabled {
-    background: #d1d5db;
+    background: #4b5563;
     cursor: not-allowed;
     transform: none;
 }
 
 .edit-btn {
     background: #f59e0b;
-    color: white;
+    color: #ffffff;
 }
 
 .edit-btn:hover {
@@ -224,7 +237,7 @@ h1 {
 
 .delete-btn {
     background: #ef4444;
-    color: white;
+    color: #ffffff;
 }
 
 .delete-btn:hover {
@@ -242,24 +255,24 @@ h1 {
 }
 
 .status.success {
-    background: #d1fae5;
-    color: #065f46;
+    background: #064e3b;
+    color: #6ee7b7;
 }
 
 .status.error {
-    background: #fee2e2;
-    color: #991b1b;
+    background: #7f1d1d;
+    color: #f87171;
 }
 
 .status.info {
-    background: #dbeafe;
-    color: #1e40af;
+    background: #1e40af;
+    color: #93c5fd;
 }
 
 /* No Apps */
 .no-apps {
     text-align: center;
-    color: #6b7280;
+    color: #9ca3af;
     padding: 2rem;
     font-size: 1rem;
 }

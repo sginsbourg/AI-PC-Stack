@@ -33,8 +33,8 @@ function loadConfig() {
         if (!fs.existsSync(CONFIG_FILE)) {
             logger.info('config.json not found. Creating default configuration.');
             const defaultConfig = [
-                { app_name: 'Application 1', description: 'A default application.', filename: 'app1.py', url: 'http://localhost:3000', launch_delay: 0, status: '', status_class: '' },
-                { app_name: 'Application 2', description: 'Another default application.', filename: 'app2.bat', url: 'http://localhost:3001', launch_delay: 0, status: '', status_class: '' }
+                { app_name: 'Application 1', description: 'A default application.', filename: 'app1.py', url: 'http://localhost:3000', launch_delay: 0, prerequisites: [], status: '', status_class: '' },
+                { app_name: 'Application 2', description: 'Another default application.', filename: 'app2.bat', url: 'http://localhost:3001', launch_delay: 0, prerequisites: [], status: '', status_class: '' }
             ];
             fs.writeJsonSync(CONFIG_FILE, defaultConfig, { spaces: 2 });
             return defaultConfig;
@@ -50,6 +50,7 @@ function loadConfig() {
             filename: app.filename ? String(app.filename).trim() : '',
             url: app.url ? String(app.url).trim() : '',
             launch_delay: typeof app.launch_delay === 'number' ? Math.max(0, app.launch_delay) : 0,
+            prerequisites: Array.isArray(app.prerequisites) ? app.prerequisites.map(p => String(p).trim()) : [],
             status: app.status || '',
             status_class: app.status_class || ''
         }));
@@ -62,6 +63,15 @@ function loadConfig() {
 // Save configuration
 function saveConfig(apps) {
     try {
+        if (!Array.isArray(apps)) {
+            throw new Error('Apps must be an array');
+        }
+        // Validate each app
+        apps.forEach(app => {
+            if (!app.app_name) {
+                throw new Error('All applications must have an app_name');
+            }
+        });
         fs.writeJsonSync(CONFIG_FILE, apps, { spaces: 2 });
         logger.info('Configuration saved successfully.');
         return { success: true, message: 'Configuration saved successfully!' };
@@ -71,81 +81,93 @@ function saveConfig(apps) {
     }
 }
 
-// Launch application
-function launchApp(filename) {
-    logger.info(`Attempting to launch file: ${filename}`);
-    if (!filename) {
-        logger.error('No filename provided for launch.');
-        return { success: false, message: 'Error: No filename provided.' };
+// Launch application(s)
+function launchApp(filenames) {
+    if (!Array.isArray(filenames)) {
+        filenames = [filenames];
     }
-
-    // Normalize and validate file path
-    const resolvedPath = path.resolve(filename);
-    if (resolvedPath === HUB_FILE || resolvedPath.toLowerCase().endsWith('.js')) {
-        logger.error(`Attempt to launch Node.js file blocked: ${resolvedPath}`);
-        return { success: false, message: 'Error: Cannot launch Node.js files or the hub itself.' };
-    }
-
-    if (!fs.existsSync(resolvedPath)) {
-        logger.error(`File not found: ${resolvedPath}`);
-        return { success: false, message: `Error: File '${resolvedPath}' not found.` };
-    }
-
-    // Skip execute permission check for .bat files on Windows; check read access only
-    try {
-        fs.accessSync(resolvedPath, fs.constants.R_OK); // Read access for all files
-    } catch (error) {
-        logger.error(`File is not readable: ${resolvedPath}: ${error.message}`);
-        return { success: false, message: `Error: File '${resolvedPath}' is not readable: ${error.message}` };
-    }
-
-    if (!resolvedPath.toLowerCase().endsWith('.py') && !resolvedPath.toLowerCase().endsWith('.bat')) {
-        logger.error(`Unsupported file type: ${resolvedPath}`);
-        return { success: false, message: 'Error: Unsupported file type. Use .py or .bat.' };
-    }
-
-    try {
-        const cwd = path.dirname(resolvedPath);
-        logger.info(`Spawning process with cwd: ${cwd}`);
-        let child;
-        if (resolvedPath.toLowerCase().endsWith('.py')) {
-            child = spawn('python', [resolvedPath], { 
-                detached: true, 
-                stdio: ['ignore', 'pipe', 'pipe'], 
-                cwd, 
-                shell: true,
-                windowsHide: true
-            });
-        } else {
-            child = spawn('cmd.exe', ['/c', resolvedPath], { 
-                detached: true, 
-                stdio: ['ignore', 'pipe', 'pipe'], 
-                cwd, 
-                shell: true,
-                windowsHide: true
-            });
+    const results = [];
+    for (const filename of filenames) {
+        logger.info(`Attempting to launch file: ${filename}`);
+        if (!filename) {
+            logger.error('No filename provided for launch.');
+            results.push({ success: false, message: 'Error: No filename provided.' });
+            continue;
         }
-        let errorOutput = '';
-        child.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-        });
-        child.on('error', (error) => {
-            logger.error(`Failed to launch ${resolvedPath}: ${error.message}`);
-        });
-        child.on('close', (code) => {
-            if (code !== 0) {
-                logger.error(`Process exited with code ${code}: ${errorOutput}`);
+
+        // Normalize and validate file path
+        const resolvedPath = path.resolve(filename);
+        if (resolvedPath === HUB_FILE || resolvedPath.toLowerCase().endsWith('.js')) {
+            logger.error(`Attempt to launch Node.js file blocked: ${resolvedPath}`);
+            results.push({ success: false, message: 'Error: Cannot launch Node.js files or the hub itself.' });
+            continue;
+        }
+
+        if (!fs.existsSync(resolvedPath)) {
+            logger.error(`File not found: ${resolvedPath}`);
+            results.push({ success: false, message: `Error: File '${resolvedPath}' not found.` });
+            continue;
+        }
+
+        // Skip execute permission check for .bat files on Windows; check read access only
+        try {
+            fs.accessSync(resolvedPath, fs.constants.R_OK); // Read access for all files
+        } catch (error) {
+            logger.error(`File is not readable: ${resolvedPath}: ${error.message}`);
+            results.push({ success: false, message: `Error: File '${resolvedPath}' is not readable: ${error.message}` });
+            continue;
+        }
+
+        if (!resolvedPath.toLowerCase().endsWith('.py') && !resolvedPath.toLowerCase().endsWith('.bat')) {
+            logger.error(`Unsupported file type: ${resolvedPath}`);
+            results.push({ success: false, message: 'Error: Unsupported file type. Use .py or .bat.' });
+            continue;
+        }
+
+        try {
+            const cwd = path.dirname(resolvedPath);
+            logger.info(`Spawning process with cwd: ${cwd}`);
+            let child;
+            if (resolvedPath.toLowerCase().endsWith('.py')) {
+                child = spawn('python', [resolvedPath], { 
+                    detached: true, 
+                    stdio: ['ignore', 'pipe', 'pipe'], 
+                    cwd, 
+                    shell: true,
+                    windowsHide: true
+                });
             } else {
-                logger.info(`Process completed successfully: ${resolvedPath}`);
+                child = spawn('cmd.exe', ['/c', resolvedPath], { 
+                    detached: true, 
+                    stdio: ['ignore', 'pipe', 'pipe'], 
+                    cwd, 
+                    shell: true,
+                    windowsHide: true
+                });
             }
-        });
-        child.unref();
-        logger.info(`Successfully launched: ${resolvedPath}`);
-        return { success: true, message: `Successfully launched '${resolvedPath}'.` };
-    } catch (error) {
-        logger.error(`Failed to launch ${resolvedPath}: ${error.message}`);
-        return { success: false, message: `Failed to launch '${resolvedPath}': ${error.message}` };
+            let errorOutput = '';
+            child.stderr.on('data', (data) => {
+                errorOutput += data.toString();
+            });
+            child.on('error', (error) => {
+                logger.error(`Failed to launch ${resolvedPath}: ${error.message}`);
+            });
+            child.on('close', (code) => {
+                if (code !== 0) {
+                    logger.error(`Process exited with code ${code}: ${errorOutput}`);
+                } else {
+                    logger.info(`Process completed successfully: ${resolvedPath}`);
+                }
+            });
+            child.unref();
+            logger.info(`Successfully launched: ${resolvedPath}`);
+            results.push({ success: true, message: `Successfully launched '${resolvedPath}'.` });
+        } catch (error) {
+            logger.error(`Failed to launch ${resolvedPath}: ${error.message}`);
+            results.push({ success: false, message: `Failed to launch '${resolvedPath}': ${error.message}` });
+        }
     }
+    return results;
 }
 
 // API Endpoints
@@ -161,7 +183,7 @@ app.get('/api/apps', (req, res) => {
 });
 
 app.post('/api/apps', (req, res) => {
-    const { app_name, description, filename, url, launch_delay } = req.body;
+    const { app_name, description, filename, url, launch_delay, prerequisites } = req.body;
     if (!app_name) {
         logger.error('Application name is required.');
         return res.status(400).json({ success: false, message: 'Error: Application name is required!' });
@@ -174,6 +196,7 @@ app.post('/api/apps', (req, res) => {
             filename: filename || '', 
             url: url || '', 
             launch_delay: typeof launch_delay === 'number' ? Math.max(0, launch_delay) : 0,
+            prerequisites: Array.isArray(prerequisites) ? prerequisites.map(p => String(p).trim()) : [],
             status: '', 
             status_class: '' 
         };
@@ -193,7 +216,7 @@ app.post('/api/apps', (req, res) => {
 
 app.put('/api/apps/:index', (req, res) => {
     const index = parseInt(req.params.index, 10);
-    const { app_name, description, filename, url, launch_delay } = req.body;
+    const { app_name, description, filename, url, launch_delay, prerequisites } = req.body;
     if (!app_name) {
         logger.error('Application name is required for update.');
         return res.status(400).json({ success: false, message: 'Error: Application name is required!' });
@@ -208,6 +231,7 @@ app.put('/api/apps/:index', (req, res) => {
                 filename: filename || '', 
                 url: url || '', 
                 launch_delay: typeof launch_delay === 'number' ? Math.max(0, launch_delay) : 0,
+                prerequisites: Array.isArray(prerequisites) ? prerequisites.map(p => String(p).trim()) : [],
                 status: '', 
                 status_class: '' 
             };
@@ -273,9 +297,9 @@ app.put('/api/save-config', (req, res) => {
 });
 
 app.post('/api/launch', (req, res) => {
-    const { filename } = req.body;
-    const result = launchApp(filename);
-    res.json(result);
+    const { filenames } = req.body;
+    const results = launchApp(filenames);
+    res.json(results);
 });
 
 // Serve the main page

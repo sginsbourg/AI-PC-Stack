@@ -1,11 +1,34 @@
 [
-    {
-        "app_name": "Text Generation Web UI",
-        "description": "A Gradio web UI for Large Language Models",
-        "filename": "C:\\Users\\sgins\\AI_STACK\\tg-webui\\start_windows.bat",
-        "url": "http://localhost:7861",
-        "launch_delay": 5,
-        "status": "",
-        "status_class": ""
-    }
+  {
+    "app_name": "Text Generation Web UI",
+    "description": "A Gradio web UI for Large Language Models",
+    "filename": "C:\\Users\\sgins\\AI_STACK\\tg-webui\\start_windows.bat",
+    "url": "http://localhost:7861",
+    "launch_delay": 5,
+    "prerequisites": [],
+    "status": "",
+    "status_class": ""
+  },
+  {
+    "app_name": "Ollama Server",
+    "description": "Starts Ollama service for local LLMs (required for OpenManus)",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_ollama.bat",
+    "url": "http://localhost:11435",
+    "launch_delay": 2,
+    "prerequisites": [],
+    "status": "",
+    "status_class": ""
+  },
+  {
+    "app_name": "OpenManus + Ollama",
+    "description": "OpenManus web UI integrated with local Ollama models",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_openmanus.bat",
+    "url": "http://localhost:5000",
+    "launch_delay": 5,
+    "prerequisites": [
+      "Ollama Server"
+    ],
+    "status": "",
+    "status_class": ""
+  }
 ]
