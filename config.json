@@ -2,16 +2,41 @@
   {
     "app_name": "Application 1",
     "description": "",
-    "filename": ""
+    "filename": "",
+    "status": "",
+    "status_class": ""
   },
   {
     "app_name": "Application 2",
     "description": "",
-    "filename": ""
+    "filename": "",
+    "status": "",
+    "status_class": ""
   },
   {
     "app_name": "Application 3",
     "description": "",
-    "filename": ""
+    "filename": "",
+    "status": "",
+    "status_class": ""
+  },
+  {
+    "app_name": "Application 4",
+    "description": "",
+    "filename": "",
+    "status": "",
+    "status_class": ""
+  },
+  {
+    "app_name": "Application 5",
+    "description": "",
+    "filename": "",
+    "status": "",
+    "status_class": ""
+  },
+  {
+    "app_name": "Text Generation Web UI",
+    "description": "A Gradio web UI for Large Language Models",
+    "filename": "C:\\Users\\sgins\\AI_STACK\\tg-webui\\start_windows.bat"
   }
 ]

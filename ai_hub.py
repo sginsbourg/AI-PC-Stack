@@ -6,169 +6,136 @@ import os
 import json
 import logging
 
-# Set up logging to diagnose rendering issues
+# Set up logging for better debugging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 CONFIG_FILE = "config.json"
 
 def load_config():
+    """Loads configuration from config.json, or creates a default if not found."""
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
                 data = json.load(f)
                 if not isinstance(data, list):
                     raise ValueError("config.json must contain a list")
-                logger.info("Loaded config: %s", data)
                 return data
         except Exception as e:
-            logger.error("Failed to parse config.json: %s", e)
+            logger.error("Failed to load or parse config.json: %s", e)
+    
+    logger.info("config.json not found or invalid. Creating a default configuration.")
     default_config = [
-        {"app_name": "Application 1", "description": "Description 1", "filename": "script1.py"},
-        {"app_name": "Application 2", "description": "Description 2", "filename": "script2.bat"},
-        {"app_name": "Application 3", "description": "Description 3", "filename": "script3.py"},
+        {"app_name": "Application 1", "description": "A default application.", "filename": "app1.py"},
+        {"app_name": "Application 2", "description": "Another default application.", "filename": "app2.bat"},
     ]
-    logger.info("Using default config: %s", default_config)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(default_config, f, indent=2)
     return default_config
 
-def save_config(data):
+def save_config(apps):
+    """Saves the current application list to config.json."""
     try:
         with open(CONFIG_FILE, "w") as f:
-            json.dump(data, f, indent=2)
-        logger.info("Configuration saved successfully")
+            json.dump(apps, f, indent=2)
+        logger.info("Configuration saved successfully.")
+        return "Configuration saved successfully!"
     except Exception as e:
         logger.error("Failed to save config: %s", e)
+        return f"Failed to save configuration: {e}"
 
-def launch_target(file_name, status_box):
-    start = time.perf_counter()
-    full_path = os.path.abspath(file_name)
-
-    if not os.path.isfile(full_path):
-        logger.error("File not found: %s", full_path)
-        return {status_box: {"value": f"Error: File '{full_path}' not found.", "elem_classes": "status-error"}}
+def launch_app(filename):
+    """Launches the specified Python or Batch script in a new process."""
+    if not filename:
+        return "Error: No filename provided."
+    if not os.path.isfile(filename):
+        return f"Error: File '{filename}' not found."
 
     try:
-        if file_name.lower().endswith(".py"):
-            subprocess.Popen([sys.executable, full_path])
-        elif file_name.lower().endswith(".bat"):
-            subprocess.Popen(full_path, shell=True)
+        if filename.lower().endswith(".py"):
+            subprocess.Popen([sys.executable, filename], creationflags=subprocess.DETACHED_PROCESS)
+        elif filename.lower().endswith(".bat"):
+            subprocess.Popen(filename, shell=True, creationflags=subprocess.DETACHED_PROCESS)
         else:
-            logger.error("Unsupported file type: %s", file_name)
-            return {status_box: {"value": "Error: Unsupported file type. Use .py or .bat", "elem_classes": "status-error"}}
-
-        duration = time.perf_counter() - start
-        logger.info("Launched %s in %.2f sec", file_name, duration)
-        return {status_box: {"value": f"Launched '{file_name}' in {duration:.2f} sec.", "elem_classes": "status-success"}}
+            return "Error: Unsupported file type. Use .py or .bat."
+        return f"Successfully launched '{filename}'."
     except Exception as e:
-        duration = time.perf_counter() - start
-        logger.error("Failed to launch %s: %s", file_name, e)
-        return {status_box: {"value": f"Failed to launch '{file_name}': {e} (after {duration:.2f} sec)", "elem_classes": "status-error"}}
+        return f"Failed to launch '{filename}': {e}"
 
-def render_cards(apps):
-    logger.info("Rendering cards for %d apps", len(apps))
-    components = []
-    # Clear existing content in cards-column
-    with gr.Column(elem_id="cards-column"):
-        if not apps:
-            logger.warning("No apps to render")
-            gr.Markdown("No applications available. Click 'Add New Application' to create one.")
-            return apps
-
-        for i, app in enumerate(apps):
-            with gr.Row():
-                app_name_tb = gr.Textbox(
-                    value=app["app_name"],
-                    label="Application Name",
-                    interactive=True,
-                    key=f"app_name_{i}"
-                )
-                desc_tb = gr.Textbox(
-                    value=app["description"],
-                    label="Description",
-                    interactive=True,
-                    lines=2,
-                    max_lines=3,
-                    key=f"desc_{i}"
-                )
-                file_tb = gr.Textbox(
-                    value=app["filename"],
-                    label="Filename (.py or .bat)",
-                    interactive=True,
-                    key=f"file_{i}"
-                )
-                launch_btn = gr.Button("Launch", variant="primary", key=f"launch_{i}")
-                status_box = gr.Label(value="", visible=True, key=f"status_{i}")
-
-                components.append({
-                    "app_name_tb": app_name_tb,
-                    "desc_tb": desc_tb,
-                    "file_tb": file_tb,
-                    "launch_btn": launch_btn,
-                    "status_box": status_box,
-                    "index": i
-                })
-
-                # Update data_state on textbox changes
-                for tb in [app_name_tb, desc_tb, file_tb]:
-                    tb.change(
-                        fn=lambda apps, idx=i, name=app_name_tb.value, desc=desc_tb.value, fname=file_tb.value: [
-                            {
-                                "app_name": name if j == idx else a["app_name"],
-                                "description": desc if j == idx else a["description"],
-                                "filename": fname if j == idx else a["filename"]
-                            }
-                            for j, a in enumerate(apps)
-                        ],
-                        inputs=[gr.State(value=apps)],
-                        outputs=[gr.State()]
-                    )
-
-    # Bind launch button events
-    for comp in components:
-        comp["launch_btn"].click(
-            fn=launch_target,
-            inputs=[comp["file_tb"], comp["status_box"]],
-            outputs=[comp["status_box"]]
-        )
-
+def add_app(apps):
+    """Adds a new blank application to the list."""
+    new_app = {"app_name": f"New Application {len(apps) + 1}", "description": "", "filename": ""}
+    apps.append(new_app)
     return apps
 
+def delete_app(apps, index):
+    """Deletes an application from the list by its index."""
+    if 0 <= index < len(apps):
+        del apps[index]
+    return apps
+
+def update_app_details(apps, app_index, app_name, description, filename):
+    """Updates the details of a specific application."""
+    if 0 <= app_index < len(apps):
+        apps[app_index]["app_name"] = app_name
+        apps[app_index]["description"] = description
+        apps[app_index]["filename"] = filename
+    return apps
+
+def get_app_ui(apps):
+    """Returns HTML representation of apps for display"""
+    if not apps:
+        return "<div class='no-apps'>No applications available. Click 'Add New Application' to create one.</div>"
+    
+    html = ""
+    for i, app in enumerate(apps):
+        html += f"""
+        <div class='app-card'>
+            <div class='card-header'>
+                <h3>{app['app_name']}</h3>
+            </div>
+            <div class='card-content'>
+                <p><strong>Description:</strong> {app['description']}</p>
+                <p><strong>Filename:</strong> {app['filename']}</p>
+                <button onclick='launchApp({i})'>Launch</button>
+            </div>
+        </div>
+        """
+    return html
+
+# Simple static version that doesn't use dynamic UI updates
 with gr.Blocks(css="style.css") as demo:
-    with gr.Column(elem_classes="container"):
-        gr.Markdown("<h1>AI Hub Dashboard - Manage & Launch Applications</h1>", elem_id="header")
-
-        data_state = gr.State(load_config())
-        save_status = gr.Label(value="", visible=False, elem_id="save-status")
-        cards_column = gr.Column(elem_id="cards-column")
-
-        add_btn = gr.Button("Add New Application", elem_id="btn-add")
-        add_btn.click(
-            fn=lambda apps: apps + [{"app_name": f"Application {len(apps)+1}", "description": "", "filename": ""}],
-            inputs=[data_state],
-            outputs=[data_state]
-        ).then(
-            fn=render_cards,
-            inputs=[data_state],
-            outputs=[cards_column]
-        )
-
-        def save_all(apps):
-            save_config(apps)
-            logger.info("Save configuration triggered")
-            return {"value": "Configuration saved.", "visible": True}
-
-        save_btn = gr.Button("Save Configuration", elem_id="btn-save")
-        save_btn.click(
-            fn=save_all,
-            inputs=[data_state],
-            outputs=[save_status]
-        )
-
-        # Initial render
-        demo.load(
-            fn=render_cards,
-            inputs=[data_state],
-            outputs=[cards_column]
-        )
+    gr.Markdown("<h1>AI Hub Dashboard</h1>", elem_id="header")
+    
+    app_data_state = gr.State(load_config())
+    apps_display = gr.HTML(value=get_app_ui(load_config()))
+    
+    with gr.Row():
+        app_name = gr.Textbox(label="Application Name")
+        app_desc = gr.Textbox(label="Description")
+        app_file = gr.Textbox(label="Filename (.py or .bat)")
+    
+    with gr.Row():
+        add_btn = gr.Button("Add Application")
+        save_btn = gr.Button("Save Configuration")
+    
+    status = gr.Label("")
+    
+    def add_application(apps, name, desc, filename):
+        new_app = {"app_name": name, "description": desc, "filename": filename}
+        apps.append(new_app)
+        return apps, get_app_ui(apps), "", "", ""
+    
+    add_btn.click(
+        add_application,
+        inputs=[app_data_state, app_name, app_desc, app_file],
+        outputs=[app_data_state, apps_display, app_name, app_desc, app_file]
+    )
+    
+    save_btn.click(
+        save_config,
+        inputs=[app_data_state],
+        outputs=[status]
+    )
 
 demo.launch(server_name="127.0.0.1", server_port=7860, inbrowser=True)
