@@ -1,193 +1,102 @@
-
 @echo off
 color 1F
-title AI Hub - Master Launcher
+title ai_hub
 
-:: Set debug log file
-set "DEBUG_LOG=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\debug_ai_hub.txt"
-echo Starting AI Hub Master Launcher at %date% %time% > "%DEBUG_LOG%" 2>&1
-echo Environment: PATH=%PATH% >> "%DEBUG_LOG%" 2>&1
-echo Time format: %time% >> "%DEBUG_LOG%" 2>&1
+setlocal enabledelayedexpansion
 
+:: Step 1: Change to target directory
+set "START1=%TIME%"
+cd /d "C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack"
+if errorlevel 1 (
+    echo ERROR: Could not change directory.
+    goto :ERROR
+)
+set "END1=%TIME%"
+
+:: Step 2: Create venv if not exists
+set "START2=%TIME%"
+if not exist venv (
+    python -m venv venv
+    if errorlevel 1 (
+        echo ERROR: Failed to create venv.
+        goto :ERROR
+    )
+)
+set "END2=%TIME%"
+
+:: Step 3: Activate venv
+set "START3=%TIME%"
+call venv\Scripts\activate.bat
+if errorlevel 1 (
+    echo ERROR: Could not activate venv.
+    goto :ERROR
+)
+set "END3=%TIME%"
+
+:: Step 4: Upgrade pip (fixed command)
+set "START4=%TIME%"
+python -m pip install --upgrade pip
+if errorlevel 1 (
+    echo ERROR: Failed to upgrade pip.
+    goto :ERROR
+)
+set "END4=%TIME%"
+
+:: Step 5: Install requirements
+set "START5=%TIME%"
+pip install -r requirements.txt
+if errorlevel 1 (
+    echo ERROR: Failed to install requirements.
+    goto :ERROR
+)
+set "END5=%TIME%"
+
+:: Step 6: Run ai_hub.py
+set "START6=%TIME%"
+python ai_hub.py
+if errorlevel 1 (
+    echo ERROR: Failed to run ai_hub.py.
+    goto :ERROR
+)
+set "END6=%TIME%"
+
+:: Step 7: Deactivate venv (optional)
+deactivate
+
+:: Show timing info (basic)
 echo.
-echo ========================================
-echo        AI HUB MASTER LAUNCHER
-echo ========================================
-echo. >> "%DEBUG_LOG%" 2>&1
-echo ======================================== >> "%DEBUG_LOG%" 2>&1
-echo        AI HUB MASTER LAUNCHER >> "%DEBUG_LOG%" 2>&1
-echo ======================================== >> "%DEBUG_LOG%" 2>&1
+echo Stage timings:
+call :DisplayTime "CD to directory" %START1% %END1%
+call :DisplayTime "Create venv" %START2% %END2%
+call :DisplayTime "Activate venv" %START3% %END3%
+call :DisplayTime "Upgrade pip" %START4% %END4%
+call :DisplayTime "Install requirements" %START5% %END5%
+call :DisplayTime "Run ai_hub.py" %START6% %END6%
 
-:: Enable delayed expansion
-setlocal EnableDelayedExpansion
+goto :EOF
 
-:: Get start time
-set "start_time=%time%"
-echo Start time: !start_time! >> "%DEBUG_LOG%" 2>&1
-
-:: Start TextGen WebUI in parallel
-echo Starting TextGen WebUI...
-echo Starting TextGen WebUI... >> "%DEBUG_LOG%" 2>&1
-set "step_start=%time%"
-start "TextGen WebUI" start_textgen.bat
-set "err=%errorlevel%"
-echo start_textgen.bat launched, errorlevel: !err! >> "%DEBUG_LOG%" 2>&1
-call :CalculateTime "!step_start!" || (
-    echo ERROR: CalculateTime failed for TextGen WebUI >> "%DEBUG_LOG%" 2>&1
-    goto :error
+:DisplayTime
+set "start=%2"
+set "end=%3"
+for /f "tokens=1-4 delims=:." %%a in ("%start%") do (
+    set "sh=%%a"
+    set "sm=%%b"
+    set "ss=%%c"
+    set "shs=%%d"
 )
-echo Done starting TextGen WebUI ... (!elapsed_time! sec)
-echo Done starting TextGen WebUI ... (!elapsed_time! sec) >> "%DEBUG_LOG%" 2>&1
-
-:: Start Ollama server in parallel
-echo Starting Ollama server...
-echo Starting Ollama server... >> "%DEBUG_LOG%" 2>&1
-set "step_start=%time%"
-start "Ollama Server" start_ollama.bat
-set "err=%errorlevel%"
-echo start_ollama.bat launched, errorlevel: !err! >> "%DEBUG_LOG%" 2>&1
-call :CalculateTime "!step_start!" || (
-    echo ERROR: CalculateTime failed for Ollama server >> "%DEBUG_LOG%" 2>&1
-    goto :error
+for /f "tokens=1-4 delims=:." %%a in ("%end%") do (
+    set "eh=%%a"
+    set "em=%%b"
+    set "es=%%c"
+    set "ehs=%%d"
 )
-echo Done starting Ollama server ... (!elapsed_time! sec)
-echo Done starting Ollama server ... (!elapsed_time! sec) >> "%DEBUG_LOG%" 2>&1
+set /a "starttotal=(sh*3600)+(sm*60)+ss"
+set /a "endtotal=(eh*3600)+(em*60)+es"
+set /a "secs = endtotal - starttotal"
+echo %~1: !secs! sec
+goto :EOF
 
-:: Wait briefly to ensure servers are starting
-echo Waiting for servers to initialize...
-echo Waiting for servers to initialize... >> "%DEBUG_LOG%" 2>&1
-set "step_start=%time%"
-timeout /t 5 /nobreak >nul
-set "err=%errorlevel%"
-echo timeout completed, errorlevel: !err! >> "%DEBUG_LOG%" 2>&1
-call :CalculateTime "!step_start!" || (
-    echo ERROR: CalculateTime failed for timeout >> "%DEBUG_LOG%" 2>&1
-    goto :error
-)
-echo Done waiting for servers ... (!elapsed_time! sec)
-echo Done waiting for servers ... (!elapsed_time! sec) >> "%DEBUG_LOG%" 2>&1
-
-:: Start the core AI Hub setup and application
-echo Starting AI Hub Core...
-echo Starting AI Hub Core... >> "%DEBUG_LOG%" 2>&1
-set "step_start=%time%"
-call start_ai_hub_core.bat
-set "err=%errorlevel%"
-echo start_ai_hub_core.bat completed, errorlevel: !err! >> "%DEBUG_LOG%" 2>&1
-call :CalculateTime "!step_start!" || (
-    echo ERROR: CalculateTime failed for AI Hub Core >> "%DEBUG_LOG%" 2>&1
-    goto :error
-)
-echo Done starting AI Hub Core ... (!elapsed_time! sec)
-echo Done starting AI Hub Core ... (!elapsed_time! sec) >> "%DEBUG_LOG%" 2>&1
-
-echo.
-echo ========================================
-echo        ALL SERVICES LAUNCHED
-echo ========================================
-echo. >> "%DEBUG_LOG%" 2>&1
-echo ======================================== >> "%DEBUG_LOG%" 2>&1
-echo        ALL SERVICES LAUNCHED >> "%DEBUG_LOG%" 2>&1
-echo ======================================== >> "%DEBUG_LOG%" 2>&1
-
-:: Calculate total time
-call :CalculateTime "!start_time!" || (
-    echo ERROR: CalculateTime failed for total time >> "%DEBUG_LOG%" 2>&1
-    goto :error
-)
-echo Total launch time ... (!elapsed_time! sec)
-echo Total launch time ... (!elapsed_time! sec) >> "%DEBUG_LOG%" 2>&1
-
-endlocal
-goto :eof
-
-:error
-echo ERROR: Script failed, check %DEBUG_LOG% for details
-echo ERROR: Script failed at %time% >> "%DEBUG_LOG%" 2>&1
-endlocal
+:ERROR
+echo Batch file terminated due to error.
 pause
 exit /b 1
-
-:CalculateTime
-setlocal EnableDelayedExpansion
-set "start=%~1"
-set "end_time=%time%"
-
-:: Log inputs
-echo CalculateTime: start=%start%, end=%end_time% >> "%DEBUG_LOG%" 2>&1
-
-:: Handle missing or malformed time strings
-if "!start!"=="" (
-    echo CalculateTime: Empty start time >> "%DEBUG_LOG%" 2>&1
-    endlocal
-    exit /b 1
-)
-if "!end_time!"=="" (
-    echo CalculateTime: Empty end time >> "%DEBUG_LOG%" 2>&1
-    endlocal
-    exit /b 1
-)
-
-:: Replace spaces for consistent parsing
-set "start=%start: =0%"
-set "end=%end_time: =0%"
-
-:: Parse time components (handle formats like "17:34:12.34" or "5:34:12.34")
-for /f "tokens=1-4 delims=:. " %%a in ("!start!") do (
-    set "start_h=%%a"
-    set "start_m=%%b"
-    set "start_s=%%c"
-    set "start_ms=%%d"
-)
-for /f "tokens=1-4 delims=:. " %%a in ("!end!") do (
-    set "end_h=%%a"
-    set "end_m=%%b"
-    set "end_s=%%c"
-    set "end_ms=%%d"
-)
-
-:: Log parsed components
-echo CalculateTime: start_h=!start_h!, start_m=!start_m!, start_s=!start_s!, start_ms=!start_ms! >> "%DEBUG_LOG%" 2>&1
-echo CalculateTime: end_h=!end_h!, end_m=!end_m!, end_s=!end_s!, end_ms=!end_ms! >> "%DEBUG_LOG%" 2>&1
-
-:: Validate components
-if "!start_h!"=="" set "start_h=0"
-if "!start_m!"=="" set "start_m=0"
-if "!start_s!"=="" set "start_s=0"
-if "!start_ms!"=="" set "start_ms=0"
-if "!end_h!"=="" set "end_h=0"
-if "!end_m!"=="" set "end_m=0"
-if "!end_s!"=="" set "end_s=0"
-if "!end_ms!"=="" set "end_ms=0"
-
-:: Convert to numbers
-set /a start_h=1!start_h!-100
-set /a start_m=1!start_m!-100
-set /a start_s=1!start_s!-100
-set /a start_ms=1!start_ms!-100
-set /a end_h=1!end_h!-100
-set /a end_m=1!end_m!-100
-set /a end_s=1!end_s!-100
-set /a end_ms=1!end_ms!-100
-
-:: Log numeric values
-echo CalculateTime: Numeric start_h=!start_h!, start_m=!start_m!, start_s=!start_s!, start_ms=!start_ms! >> "%DEBUG_LOG%" 2>&1
-echo CalculateTime: Numeric end_h=!end_h!, end_m=!end_m!, end_s=!end_s!, end_ms=!end_ms! >> "%DEBUG_LOG%" 2>&1
-
-:: Calculate total hundredths of a second
-set /a start_total=(start_h*3600 + start_m*60 + start_s)*100 + start_ms
-set /a end_total=(end_h*3600 + end_m*60 + end_s)*100 + end_ms
-set /a elapsed_total=end_total - start_total
-if !elapsed_total! lss 0 set /a elapsed_total+=24*3600*100
-set /a elapsed_time=elapsed_total / 100
-set /a elapsed_time_dec=elapsed_total %% 100
-
-:: Format with leading zero if needed
-if !elapsed_time_dec! lss 10 set "elapsed_time_dec=0!elapsed_time_dec!"
-set "elapsed_time=!elapsed_time!.!elapsed_time_dec!"
-
-:: Log result
-echo CalculateTime: Result elapsed_time=!elapsed_time! >> "%DEBUG_LOG%" 2>&1
-
-endlocal & set "elapsed_time=%elapsed_time%"
-exit /b 0
