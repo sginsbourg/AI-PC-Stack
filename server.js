@@ -4,6 +4,7 @@ const fs = require('fs-extra');
 const { spawn } = require('child_process');
 const path = require('path');
 const logger = require('winston');
+const net = require('net');
 
 // Configure logging
 logger.configure({
@@ -26,6 +27,27 @@ const HUB_FILE = path.resolve(__dirname, 'server.js'); // Prevent launching the 
 // Middleware
 app.use(bodyParser.json());
 app.use(express.static(__dirname, { index: false })); // Serve static files, disable default index
+
+// Check if a port is in use
+function checkPort(host, port) {
+    return new Promise((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(1000); // 1s timeout
+        socket.on('connect', () => {
+            socket.destroy();
+            resolve(true); // Port is in use
+        });
+        socket.on('error', () => {
+            socket.destroy();
+            resolve(false); // Port is free
+        });
+        socket.on('timeout', () => {
+            socket.destroy();
+            resolve(false); // Port is free
+        });
+        socket.connect(port, host);
+    });
+}
 
 // Load configuration
 function loadConfig() {
@@ -179,6 +201,22 @@ app.get('/api/apps', (req, res) => {
     } catch (error) {
         logger.error(`Error in /api/apps: ${error.message}`);
         res.status(500).json({ success: false, message: `Failed to fetch apps: ${error.message}` });
+    }
+});
+
+app.post('/api/check-port', async (req, res) => {
+    const { host, port } = req.body;
+    if (!host || !port) {
+        logger.error('Host and port are required for port check.');
+        return res.status(400).json({ success: false, message: 'Error: Host and port are required.' });
+    }
+    try {
+        const isPortInUse = await checkPort(host, port);
+        logger.info(`Port check: ${host}:${port} is ${isPortInUse ? 'in use' : 'free'}`);
+        res.json({ success: true, inUse: isPortInUse });
+    } catch (error) {
+        logger.error(`Error checking port ${host}:${port}: ${error.message}`);
+        res.status(500).json({ success: false, message: `Failed to check port: ${error.message}` });
     }
 });
 

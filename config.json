@@ -13,7 +13,7 @@
     "app_name": "Ollama Server",
     "description": "Starts Ollama service for local LLMs (required for OpenManus)",
     "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_ollama.bat",
-    "url": "http://localhost:11435",
+    "url": "http://localhost:11434",
     "launch_delay": 2,
     "prerequisites": [],
     "status": "",

@@ -1,5 +1,6 @@
 @echo off
 cd /d "C:\Users\sgins\AI_STACK\OpenManus"
 pip install -r requirements.txt
-python openmanus_web.py
+pip install streamlit
+streamlit run openmanus_web.py
 pause

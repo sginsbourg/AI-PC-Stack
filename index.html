@@ -329,7 +329,7 @@
                 const app = apps[index];
                 const filenames = [];
 
-                // Collect prerequisite filenames
+                // Collect prerequisite filenames, checking if they need to be launched
                 if (app.prerequisites && app.prerequisites.length > 0) {
                     for (const prereq of app.prerequisites) {
                         const prereqIndex = parseInt(prereq, 10);
@@ -339,13 +339,48 @@
                         } else {
                             prereqApp = apps.find(a => a.app_name === prereq);
                         }
-                        if (prereqApp && prereqApp.filename) {
-                            filenames.push(prereqApp.filename);
-                            setStatus(`🚀 Launching prerequisite: ${prereqApp.app_name}...`, 'info');
-                            await new Promise(resolve => setTimeout(resolve, (prereqApp.launch_delay || 0) * 1000));
+                        if (!prereqApp) {
+                            console.warn(`Prerequisite not found: ${prereq}`);
+                            setStatus(`⚠️ Warning: Prerequisite '${prereq}' not found.`, 'error');
+                            continue;
+                        }
+                        if (!prereqApp.filename) {
+                            console.warn(`No filename for prerequisite: ${prereq}`);
+                            setStatus(`⚠️ Warning: Prerequisite '${prereq}' has no filename.`, 'error');
+                            continue;
+                        }
+
+                        // Check if prerequisite is Ollama and if it's already running
+                        let shouldLaunch = true;
+                        if (prereqApp.app_name === 'Ollama Server' && prereqApp.url) {
+                            const urlMatch = prereqApp.url.match(/^(https?:\/\/[^:]+):(\d+)/);
+                            if (urlMatch) {
+                                const host = urlMatch[1].replace('http://', '').replace('https://', '');
+                                const port = parseInt(urlMatch[2], 10);
+                                setStatus(`🔍 Checking if Ollama is running on ${host}:${port}...`, 'info');
+                                const portCheckResponse = await fetch('/api/check-port', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ host, port })
+                                });
+                                if (!portCheckResponse.ok) {
+                                    throw new Error(`HTTP error ${portCheckResponse.status}: ${portCheckResponse.statusText}`);
+                                }
+                                const { inUse } = await portCheckResponse.json();
+                                if (inUse) {
+                                    setStatus(`✅ Using existing Ollama instance on ${host}:${port}.`, 'success');
+                                    shouldLaunch = false; // Skip launching Ollama
+                                } else {
+                                    setStatus(`🚀 Launching prerequisite: ${prereqApp.app_name}...`, 'info');
+                                }
+                            }
                         } else {
-                            console.warn(`Prerequisite not found or no filename: ${prereq}`);
-                            setStatus(`⚠️ Warning: Prerequisite '${prereq}' not found or has no filename.`, 'error');
+                            setStatus(`🚀 Launching prerequisite: ${prereqApp.app_name}...`, 'info');
+                        }
+
+                        if (shouldLaunch) {
+                            filenames.push(prereqApp.filename);
+                            await new Promise(resolve => setTimeout(resolve, (prereqApp.launch_delay || 0) * 1000));
                         }
                     }
                 }
@@ -358,21 +393,28 @@
                 }
 
                 console.log(`Launching apps with filenames: ${filenames.join(', ')}`);
-                const launchResponse = await fetch('/api/launch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filenames })
-                });
-                if (!launchResponse.ok) {
-                    throw new Error(`HTTP error ${launchResponse.status}: ${launchResponse.statusText}`);
-                }
-                const results = await launchResponse.json();
-                let allSuccess = true;
-                for (const result of results) {
-                    setStatus(result.success ? `✅ ${result.message}` : `❌ ${result.message}`, result.success ? 'success' : 'error');
-                    if (!result.success) allSuccess = false;
-                }
-                if (allSuccess && app.url) {
+                if (filenames.length > 0) {
+                    const launchResponse = await fetch('/api/launch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filenames })
+                    });
+                    if (!launchResponse.ok) {
+                        throw new Error(`HTTP error ${launchResponse.status}: ${launchResponse.statusText}`);
+                    }
+                    const results = await launchResponse.json();
+                    let allSuccess = true;
+                    for (const result of results) {
+                        setStatus(result.success ? `✅ ${result.message}` : `❌ ${result.message}`, result.success ? 'success' : 'error');
+                        if (!result.success) allSuccess = false;
+                    }
+                    if (allSuccess && app.url) {
+                        setTimeout(() => {
+                            openAppUrl(index);
+                        }, (app.launch_delay || 0) * 1000);
+                    }
+                } else if (app.url) {
+                    // No files to launch (e.g., only using existing Ollama), open URL
                     setTimeout(() => {
                         openAppUrl(index);
                     }, (app.launch_delay || 0) * 1000);
