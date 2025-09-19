@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs-extra');
-const { spawn, exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const logger = require('winston');
 const net = require('net');
@@ -90,86 +90,130 @@ function saveConfig(apps) {
     }
 }
 
-// Launch application
+// FIXED path normalization function
+function normalizeWindowsPath(filePath) {
+    // First, replace any forward slashes with backslashes
+    let normalized = filePath.replace(/\//g, '\\');
+    
+    // Handle cases where backslashes might be escaped or missing
+    // Ensure we have proper Windows path format
+    if (!normalized.includes(':\\') && normalized.includes(':')) {
+        // Fix paths like "C:Users..." to "C:\Users..."
+        normalized = normalized.replace(/([A-Z]):([^\\])/, '$1:\\$2');
+    }
+    
+    // Use path.normalize to clean up the path
+    return path.normalize(normalized);
+}
+
+// Launch application function with FIXED path handling
 async function launchApp(filenames) {
     const apps = loadConfig();
     const results = [];
+    
     for (const filename of filenames) {
-        logger.info(`Attempting to launch filename: ${filename}`);
+        logger.info(`Attempting to launch: ${filename}`);
+        
         if (filename === HUB_FILE) {
-            logger.error(`Cannot launch the hub itself: ${filename}`);
-            results.push({ success: false, message: `Cannot launch the hub itself: ${filename}` });
+            results.push({ success: false, message: `Cannot launch the hub itself` });
             continue;
         }
+        
         try {
             const app = apps.find(a => a.filename === filename);
             if (!app) {
-                logger.error(`Application not found: ${filename}`);
                 results.push({ success: false, message: `Application not found: ${filename}` });
                 continue;
             }
 
-            // Normalize path for Windows
-            const normalizedPath = path.normalize(filename);
+            // FIXED: Use our custom path normalization
+            const normalizedPath = normalizeWindowsPath(filename);
             logger.info(`Normalized path: ${normalizedPath}`);
+            
             if (!fs.existsSync(normalizedPath)) {
-                logger.error(`File not found: ${normalizedPath}`);
                 results.push({ success: false, message: `File not found: ${normalizedPath}` });
                 continue;
             }
 
-            // Check prerequisites (log warnings, don't block)
+            // Check if it's a batch file
+            if (!normalizedPath.toLowerCase().endsWith('.bat')) {
+                results.push({ success: false, message: `Only .bat files are supported: ${normalizedPath}` });
+                continue;
+            }
+
+            // Check prerequisites
+            const missingPrereqs = [];
             for (const prereq of app.prerequisites) {
                 const prereqApp = apps.find(a => a.app_name === prereq || a.filename === prereq);
                 if (prereqApp && prereqApp.url) {
                     const [host, port] = prereqApp.url.replace('http://', '').split(':');
                     if (!(await checkPort(host, parseInt(port)))) {
-                        logger.warn(`Prerequisite ${prereq} not running for ${app.app_name}`);
+                        missingPrereqs.push(prereq);
                     }
                 }
             }
 
-            // Use exec for .bat files on Windows
-            const extension = path.extname(normalizedPath).toLowerCase();
-            if (extension === '.bat' || extension === '.cmd') {
-                logger.info(`Using exec for ${normalizedPath}`);
-                await new Promise((resolve, reject) => {
-                    exec(`cmd /c "${normalizedPath}"`, { windowsHide: false }, (error, stdout, stderr) => {
-                        if (error) {
-                            logger.error(`Exec error for ${app.app_name}: ${error.message}. Stderr: ${stderr}`);
-                            results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
-                            reject(error);
-                        } else {
-                            logger.info(`Exec successful for ${app.app_name}. Stdout: ${stdout}`);
-                            results.push({ success: true, message: `Launched ${app.app_name}` });
-                            resolve();
-                        }
-                    });
+            if (missingPrereqs.length > 0) {
+                results.push({ 
+                    success: false, 
+                    message: `Missing prerequisites: ${missingPrereqs.join(', ')}. Please start them first.` 
                 });
-            } else {
-                logger.info(`Using spawn for ${normalizedPath}`);
-                const child = spawn(normalizedPath, [], { shell: false, detached: true, stdio: 'ignore' });
-                child.on('error', (error) => {
-                    logger.error(`Spawn error for ${app.app_name}: ${error.message}`);
-                    results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
-                });
-                child.unref();
-                results.push({ success: true, message: `Launched ${app.app_name}` });
+                continue;
             }
 
+            // LAUNCH THE APPLICATION
+            logger.info(`Launching: ${normalizedPath}`);
+            
+            const launchPromise = new Promise((resolve) => {
+                try {
+                    // Use the directory of the batch file as working directory
+                    const workingDir = path.dirname(normalizedPath);
+                    
+                    const child = spawn('cmd.exe', [
+                        '/c', 'start', 
+                        `"${app.app_name}"`, 
+                        '/D', workingDir,
+                        'cmd.exe', '/c', normalizedPath
+                    ], {
+                        detached: true,
+                        stdio: 'ignore',
+                        windowsHide: true
+                    });
+
+                    child.unref();
+                    
+                    // Give it a moment to start
+                    setTimeout(() => {
+                        resolve({ success: true, message: `Launched ${app.app_name}` });
+                    }, 1000);
+
+                } catch (error) {
+                    resolve({ success: false, message: `Failed to launch: ${error.message}` });
+                }
+            });
+
+            const result = await launchPromise;
+            
             // Update app status
-            app.status = `Launched at ${new Date().toLocaleTimeString()}`;
-            app.status_class = 'success';
-            saveConfig(apps);
+            if (result.success) {
+                app.status = `Launched at ${new Date().toLocaleTimeString()}`;
+                app.status_class = 'success';
+                saveConfig(apps);
+            }
+            
+            results.push(result);
+            logger.info(`Launch result for ${app.app_name}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+
         } catch (error) {
-            logger.error(`Failed to launch ${filename}: ${error.message}`);
-            results.push({ success: false, message: `Failed to launch ${filename}: ${error.message}` });
+            logger.error(`Unexpected error launching ${filename}: ${error.message}`);
+            results.push({ success: false, message: `Unexpected error: ${error.message}` });
         }
     }
+    
     return results.length === 1 ? results[0] : results;
 }
 
-// Routes
+// Routes (keep all other routes the same as before)
 app.get('/api/apps', (req, res) => {
     try {
         const apps = loadConfig();
@@ -230,7 +274,7 @@ app.delete('/api/delete-app', (req, res) => {
             res.status(400).json({ success: false, message: 'Error: Invalid application index!' });
         }
     } catch (error) {
-        logger.error(`Error deleting app: ${error.message}`);
+        logger.error(`Error deleting app: ${error.message`);
         res.status(500).json({ success: false, message: `Failed to delete application: ${error.message}` });
     }
 });
@@ -255,19 +299,65 @@ app.put('/api/save-config', (req, res) => {
     }
 });
 
-app.post('/api/launch', (req, res) => {
+// Launch endpoint
+app.post('/api/launch', async (req, res) => {
     const { filenames } = req.body;
     if (!Array.isArray(filenames)) {
         logger.error('Invalid request: filenames must be an array.');
         return res.status(400).json({ success: false, message: 'Error: Invalid filenames array provided.' });
     }
     try {
-        logger.info(`Received launch request for filenames: ${filenames.join(', ')}`);
-        const results = launchApp(filenames);
+        logger.info(`Received launch request for: ${filenames.join(', ')}`);
+        const results = await launchApp(filenames);
         res.json(results);
     } catch (error) {
         logger.error(`Error in /api/launch: ${error.message}`);
         res.status(500).json({ success: false, message: `Error launching apps: ${error.message}` });
+    }
+});
+
+// Debug endpoint to test file execution
+app.post('/api/debug-launch', async (req, res) => {
+    const { filename } = req.body;
+    try {
+        logger.info(`Debug launch: ${filename}`);
+        
+        // Test if file exists
+        const normalizedPath = normalizeWindowsPath(filename);
+        const exists = fs.existsSync(normalizedPath);
+        
+        if (!exists) {
+            return res.json({ success: false, message: `File not found: ${normalizedPath}` });
+        }
+        
+        // Test execution
+        const workingDir = path.dirname(normalizedPath);
+        const child = spawn('cmd.exe', [
+            '/c', 'start', 
+            '"Debug Test"', 
+            '/D', workingDir,
+            'cmd.exe', '/c', normalizedPath
+        ], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+        });
+        
+        child.unref();
+        
+        res.json({ 
+            success: true, 
+            message: `Attempted to launch: ${normalizedPath}`,
+            details: {
+                fileExists: true,
+                isBatch: normalizedPath.toLowerCase().endsWith('.bat'),
+                normalizedPath: normalizedPath,
+                workingDir: workingDir
+            }
+        });
+        
+    } catch (error) {
+        res.json({ success: false, message: `Debug error: ${error.message}` });
     }
 });
 
@@ -277,7 +367,7 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, '0.0.0.0', () => {
     logger.info(`Server running at http://127.0.0.1:${PORT}`);
     const { exec } = require('child_process');
     const isWindows = process.platform === 'win32';

@@ -131,7 +131,7 @@
                             <p><strong>Prerequisites:</strong> ${app.prerequisites.join(', ') || 'None'}</p>
                         </div>
                         <div class="card-actions">
-                            <button class="launch-btn" onclick="launchApp('${encodeURIComponent(app.filename)}', '${app.app_name}')">Launch</button>
+                            <button class="launch-btn" onclick="launchApp('${app.filename}', '${app.app_name}')">Launch</button>
                             <button class="open-btn" ${app.url ? '' : 'disabled'} onclick="openApp('${app.url}')">Open</button>
                             <button class="edit-btn" onclick="editApp(${index})">Edit</button>
                             <button class="delete-btn" onclick="deleteApp(${index})">Delete</button>
@@ -148,8 +148,7 @@
         }
 
         // Launch app with improved debugging
-        async function launchApp(encodedFilename, appName) {
-            const filename = decodeURIComponent(encodedFilename);
+        async function launchApp(filename, appName) {
             console.log(`Button clicked: Launching ${appName} with filename: ${filename}`);
             document.getElementById('status').textContent = `Attempting to launch ${appName}...`;
             document.getElementById('status').className = 'status info';
