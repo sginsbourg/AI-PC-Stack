@@ -1,19 +1,72 @@
 import os
+import streamlit as st
 from crewai import Agent, Task, Crew, Process
 from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_openai import ChatOpenAI
-import streamlit as st
-from pydantic import BaseModel
+from langchain_community.chat_models import ChatOllama
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
+import requests
+from pydantic import BaseModel, Extra
 
-# DuckDuckGo tool for gathering search results
+# Custom LLM class for OpenManus/DeepSeek
+class CustomLocalLLM(BaseChatModel):
+    base_url: str
+    model_name: str
+
+    class Config:
+        extra = "allow"  # Allow extra attributes for Pydantic v1 compatibility
+
+    def __init__(self, base_url: str, model_name: str, **kwargs):
+        super().__init__(base_url=base_url, model_name=model_name, **kwargs)
+
+    def _generate(self, messages, stop=None):
+        # Convert messages to OpenAI-compatible format
+        payload = {
+            "model": self.model_name,
+            "messages": [
+                {"role": "system" if isinstance(m, SystemMessage) else "user", "content": m.content}
+                for m in messages
+            ],
+            "temperature": 0.1
+        }
+        try:
+            response = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            return [{"text": result["choices"][0]["message"]["content"]}]
+        except Exception as e:
+            raise Exception(f"Error connecting to {self.base_url}: {str(e)}")
+
+    @property
+    def _llm_type(self):
+        return "custom_local"
+
+# Check available local LLMs
+def get_available_llm():
+    services = [
+        ("Ollama", "http://127.0.0.1:11435", ChatOllama(model="mistral", base_url="http://127.0.0.1:11435")),
+        ("OpenManus", "http://localhost:8501/api", CustomLocalLLM(base_url="http://localhost:8501/api", model_name="openmanus")),
+        ("DeepSeek", "http://localhost:8000/v1", CustomLocalLLM(base_url="http://localhost:8000/v1", model_name="deepseek"))
+    ]
+    for name, url, llm in services:
+        try:
+            response = requests.get(url + "/health", timeout=5)
+            if response.status_code == 200:
+                return llm, name
+        except:
+            continue
+    raise Exception("No local LLM services available (Ollama, OpenManus, DeepSeek)")
+
+# Initialize LLM
+try:
+    llm, llm_name = get_available_llm()
+    st.write(f"Using LLM: {llm_name}")
+except Exception as e:
+    st.error(f"Failed to initialize LLM: {str(e)}")
+    st.stop()
+
+# DuckDuckGo tool
 tool = DuckDuckGoSearchRun()
-
-# Configure the LLM to use Ollama (mistral model)
-llm = ChatOpenAI(
-    model="ollama/mistral",
-    base_url="http://localhost:11434/v1",  # Local Ollama instance
-    temperature=0.1  # Low temperature for consistent output
-)
 
 # Researcher Agent
 News_Researcher = Agent(
