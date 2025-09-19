@@ -64,5 +64,15 @@
     "prerequisites": [],
     "status": "",
     "status_class": ""
+  },
+  {
+    "app_name": "Orpheus-TTS Speech Generator",
+    "description": "Human-sounding text-to-speech using Orpheus-TTS with Streamlit UI",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_orpheus_tts.bat",
+    "url": "http://localhost:8503",
+    "launch_delay": 10,
+    "prerequisites": [],
+    "status": "",
+    "status_class": ""
   }
 ]
