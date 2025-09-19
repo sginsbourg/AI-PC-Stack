@@ -6,11 +6,11 @@ const path = require('path');
 const logger = require('winston');
 const net = require('net');
 
-// Configure logging
+// Configure logging with more verbose settings
 logger.configure({
     transports: [
         new logger.transports.Console({
-            level: 'info',
+            level: 'debug',
             format: logger.format.combine(
                 logger.format.timestamp(),
                 logger.format.printf(({ timestamp, level, message }) => `${timestamp} ${level}: ${message}`)
@@ -26,7 +26,7 @@ const HUB_FILE = path.resolve(__dirname, 'server.js');
 
 // Middleware
 app.use(bodyParser.json());
-app.use(express.static(__dirname, { index: false }));
+app.use(express.static(__dirname));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
@@ -70,7 +70,7 @@ function loadConfig() {
             return defaultConfig;
         }
         const config = fs.readJsonSync(CONFIG_FILE);
-        logger.info(`Loaded config with ${config.length} apps`);
+        logger.debug(`Loaded config with ${config.length} apps`);
         return config;
     } catch (error) {
         logger.error(`Error loading config: ${error.message}`);
@@ -82,7 +82,7 @@ function loadConfig() {
 function saveConfig(apps) {
     try {
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(apps, null, 2));
-        logger.info('Configuration saved successfully');
+        logger.debug('Configuration saved successfully');
         return { success: true, message: 'Configuration saved successfully' };
     } catch (error) {
         logger.error(`Error saving config: ${error.message}`);
@@ -90,31 +90,36 @@ function saveConfig(apps) {
     }
 }
 
-// FIXED path normalization function
+// VERBOSE path normalization function
 function normalizeWindowsPath(filePath) {
-    // First, replace any forward slashes with backslashes
-    let normalized = filePath.replace(/\//g, '\\');
+    logger.debug(`[VERBOSE] Original path from client: ${filePath}`);
     
-    // Handle cases where backslashes might be escaped or missing
-    // Ensure we have proper Windows path format
-    if (!normalized.includes(':\\') && normalized.includes(':')) {
+    // If the path is already corrupted (missing backslashes after drive letter)
+    if (filePath.match(/^[A-Z]:[^\\]/)) {
         // Fix paths like "C:Users..." to "C:\Users..."
-        normalized = normalized.replace(/([A-Z]):([^\\])/, '$1:\\$2');
+        filePath = filePath.replace(/^([A-Z]:)([^\\])/, '$1\\$2');
+        logger.debug(`[VERBOSE] Fixed path: ${filePath}`);
     }
     
     // Use path.normalize to clean up the path
-    return path.normalize(normalized);
+    const normalized = path.normalize(filePath);
+    logger.debug(`[VERBOSE] Final normalized path: ${normalized}`);
+    
+    return normalized;
 }
 
-// Launch application function with FIXED path handling
+// FIXED: Launch application function with proper batch file execution
 async function launchApp(filenames) {
+    logger.debug(`[VERBOSE] Launch request received for files: ${filenames.join(', ')}`);
     const apps = loadConfig();
     const results = [];
     
     for (const filename of filenames) {
-        logger.info(`Attempting to launch: ${filename}`);
+        logger.debug(`[VERBOSE] === LAUNCH ATTEMPT START ===`);
+        logger.debug(`[VERBOSE] Processing filename: ${filename}`);
         
         if (filename === HUB_FILE) {
+            logger.debug(`[VERBOSE] Cannot launch hub itself`);
             results.push({ success: false, message: `Cannot launch the hub itself` });
             continue;
         }
@@ -122,101 +127,100 @@ async function launchApp(filenames) {
         try {
             const app = apps.find(a => a.filename === filename);
             if (!app) {
+                logger.debug(`[VERBOSE] Application not found in config`);
                 results.push({ success: false, message: `Application not found: ${filename}` });
                 continue;
             }
 
-            // FIXED: Use our custom path normalization
-            const normalizedPath = normalizeWindowsPath(filename);
-            logger.info(`Normalized path: ${normalizedPath}`);
+            logger.debug(`[VERBOSE] Found app: ${app.app_name}`);
             
-            if (!fs.existsSync(normalizedPath)) {
+            // Use our custom path normalization
+            const normalizedPath = normalizeWindowsPath(filename);
+            
+            // Check if file exists
+            const fileExists = fs.existsSync(normalizedPath);
+            logger.debug(`[VERBOSE] File exists check: ${fileExists} - ${normalizedPath}`);
+            
+            if (!fileExists) {
+                logger.debug(`[VERBOSE] FILE NOT FOUND: ${normalizedPath}`);
                 results.push({ success: false, message: `File not found: ${normalizedPath}` });
                 continue;
             }
 
-            // Check if it's a batch file
-            if (!normalizedPath.toLowerCase().endsWith('.bat')) {
-                results.push({ success: false, message: `Only .bat files are supported: ${normalizedPath}` });
-                continue;
-            }
+            logger.debug(`[VERBOSE] File exists, proceeding with launch...`);
 
             // Check prerequisites
             const missingPrereqs = [];
+            logger.debug(`[VERBOSE] Checking prerequisites: ${app.prerequisites.join(', ')}`);
+            
             for (const prereq of app.prerequisites) {
                 const prereqApp = apps.find(a => a.app_name === prereq || a.filename === prereq);
                 if (prereqApp && prereqApp.url) {
                     const [host, port] = prereqApp.url.replace('http://', '').split(':');
-                    if (!(await checkPort(host, parseInt(port)))) {
+                    const isPortOpen = await checkPort(host, parseInt(port));
+                    logger.debug(`[VERBOSE] Prerequisite ${prereq} (${host}:${port}) - Port open: ${isPortOpen}`);
+                    if (!isPortOpen) {
                         missingPrereqs.push(prereq);
                     }
                 }
             }
 
             if (missingPrereqs.length > 0) {
+                logger.debug(`[VERBOSE] Missing prerequisites: ${missingPrereqs.join(', ')}`);
                 results.push({ 
                     success: false, 
-                    message: `Missing prerequisites: ${missingPrereqs.join(', ')}. Please start them first.` 
+                    message: `Missing prerequisites: ${missingPrereqs.join(', ')}. Launch them first.`
                 });
                 continue;
             }
 
-            // LAUNCH THE APPLICATION
-            logger.info(`Launching: ${normalizedPath}`);
-            
-            const launchPromise = new Promise((resolve) => {
-                try {
-                    // Use the directory of the batch file as working directory
-                    const workingDir = path.dirname(normalizedPath);
-                    
-                    const child = spawn('cmd.exe', [
-                        '/c', 'start', 
-                        `"${app.app_name}"`, 
-                        '/D', workingDir,
-                        'cmd.exe', '/c', normalizedPath
-                    ], {
-                        detached: true,
-                        stdio: 'ignore',
-                        windowsHide: true
-                    });
+            logger.debug(`[VERBOSE] All prerequisites satisfied. Launching...`);
 
-                    child.unref();
-                    
-                    // Give it a moment to start
-                    setTimeout(() => {
-                        resolve({ success: true, message: `Launched ${app.app_name}` });
-                    }, 1000);
+            // Launch with 'start' to open in a new console window (fix for console-dependent scripts)
+            logger.debug(`[VERBOSE] Launching batch file: cmd.exe /c start "" "${normalizedPath}"`);
+            const batProcess = spawn('cmd.exe', ['/c', 'start', '""', `"${normalizedPath}"`], { detached: true, stdio: 'ignore' });
+            batProcess.unref();
 
-                } catch (error) {
-                    resolve({ success: false, message: `Failed to launch: ${error.message}` });
-                }
-            });
+            logger.debug(`[VERBOSE] Process spawned and detached`);
 
-            const result = await launchPromise;
-            
-            // Update app status
-            if (result.success) {
+            // Update status after delay (if URL exists, check port; otherwise, assume success)
+            if (app.url) {
+                setTimeout(async () => {
+                    const [host, port] = app.url.replace('http://', '').split(':');
+                    const isPortOpen = await checkPort(host, parseInt(port));
+                    logger.debug(`[VERBOSE] Post-launch port check (${host}:${port}): ${isPortOpen}`);
+                    if (isPortOpen) {
+                        app.status = `Launched at ${new Date().toLocaleTimeString()}`;
+                        app.status_class = 'success';
+                    } else {
+                        app.status = 'Launch failed - port not open';
+                        app.status_class = 'error';
+                    }
+                    saveConfig(apps);
+                }, (app.launch_delay || 5) * 1000);
+            } else {
                 app.status = `Launched at ${new Date().toLocaleTimeString()}`;
                 app.status_class = 'success';
                 saveConfig(apps);
             }
-            
-            results.push(result);
-            logger.info(`Launch result for ${app.app_name}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
 
+            results.push({ success: true, message: `Launched ${app.app_name}`, status: app.status });
         } catch (error) {
-            logger.error(`Unexpected error launching ${filename}: ${error.message}`);
-            results.push({ success: false, message: `Unexpected error: ${error.message}` });
+            logger.error(`[VERBOSE] Launch error for ${filename}: ${error.message}`);
+            results.push({ success: false, message: `Failed to launch: ${error.message}` });
         }
+        logger.debug(`[VERBOSE] === LAUNCH ATTEMPT END ===`);
     }
-    
-    return results.length === 1 ? results[0] : results;
+
+    saveConfig(apps);
+    return results;
 }
 
-// Routes
+// Get apps endpoint
 app.get('/api/apps', (req, res) => {
     try {
         const apps = loadConfig();
+        logger.debug(`[VERBOSE] Sending ${apps.length} apps to client`);
         res.json({ success: true, apps });
     } catch (error) {
         logger.error(`Error fetching apps: ${error.message}`);
@@ -225,6 +229,7 @@ app.get('/api/apps', (req, res) => {
 });
 
 app.post('/api/add-app', (req, res) => {
+    logger.debug(`[VERBOSE] POST /api/add-app request received`);
     try {
         const newApp = req.body;
         if (!newApp.app_name || !newApp.filename) {
@@ -256,6 +261,7 @@ app.post('/api/add-app', (req, res) => {
 });
 
 app.delete('/api/delete-app', (req, res) => {
+    logger.debug(`[VERBOSE] DELETE /api/delete-app request received`);
     try {
         const { index } = req.body;
         const apps = loadConfig();
@@ -280,6 +286,7 @@ app.delete('/api/delete-app', (req, res) => {
 });
 
 app.put('/api/save-config', (req, res) => {
+    logger.debug(`[VERBOSE] PUT /api/save-config request received`);
     const { apps: appsToSave } = req.body;
     if (!Array.isArray(appsToSave)) {
         logger.error('Invalid request: apps must be an array.');
@@ -299,16 +306,18 @@ app.put('/api/save-config', (req, res) => {
     }
 });
 
-// Launch endpoint
+// Launch endpoint with verbose logging
 app.post('/api/launch', async (req, res) => {
     const { filenames } = req.body;
+    logger.debug(`[VERBOSE] POST /api/launch request received for: ${filenames.join(', ')}`);
+    
     if (!Array.isArray(filenames)) {
         logger.error('Invalid request: filenames must be an array.');
         return res.status(400).json({ success: false, message: 'Error: Invalid filenames array provided.' });
     }
     try {
-        logger.info(`Received launch request for: ${filenames.join(', ')}`);
         const results = await launchApp(filenames);
+        logger.debug(`[VERBOSE] Launch results: ${JSON.stringify(results)}`);
         res.json(results);
     } catch (error) {
         logger.error(`Error in /api/launch: ${error.message}`);
@@ -316,59 +325,49 @@ app.post('/api/launch', async (req, res) => {
     }
 });
 
-// Debug endpoint to test file execution
-app.post('/api/debug-launch', async (req, res) => {
-    const { filename } = req.body;
+// Test endpoint for debugging launch issues
+app.post('/api/test-launch', async (req, res) => {
+    const { filenames } = req.body;
+    logger.debug(`[TEST] Test launch request received`);
+    
     try {
-        logger.info(`Debug launch: ${filename}`);
-        
-        // Test if file exists
-        const normalizedPath = normalizeWindowsPath(filename);
-        const exists = fs.existsSync(normalizedPath);
-        
-        if (!exists) {
-            return res.json({ success: false, message: `File not found: ${normalizedPath}` });
-        }
-        
-        // Test execution
-        const workingDir = path.dirname(normalizedPath);
-        const child = spawn('cmd.exe', [
-            '/c', 'start', 
-            '"Debug Test"', 
-            '/D', workingDir,
-            'cmd.exe', '/c', normalizedPath
-        ], {
-            detached: true,
-            stdio: 'ignore',
-            windowsHide: true
-        });
-        
-        child.unref();
-        
-        res.json({ 
-            success: true, 
-            message: `Attempted to launch: ${normalizedPath}`,
-            details: {
-                fileExists: true,
-                isBatch: normalizedPath.toLowerCase().endsWith('.bat'),
-                normalizedPath: normalizedPath,
-                workingDir: workingDir
-            }
-        });
-        
+        const results = await launchApp(filenames); // Reuse launchApp for testing
+        res.json(results);
     } catch (error) {
-        res.json({ success: false, message: `Debug error: ${error.message}` });
+        logger.error(`Error in test launch: ${error.message}`);
+        res.status(500).json({ success: false, message: `Error testing launch: ${error.message}` });
     }
 });
 
 // Serve the main page
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    logger.debug(`[VERBOSE] Serving index.html`);
+    res.sendFile(path.join(__dirname, 'index.html'), (err) => {
+        if (err) {
+            logger.error(`Error serving index.html: ${err.message}`);
+            res.status(500).send('Error loading the application');
+        }
+    });
 });
 
-// Start server
+// Start server with verbose logging
 app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`=== AI HUB SERVER STARTING ===`);
     logger.info(`Server running at http://127.0.0.1:${PORT}`);
+    logger.info(`Serving from directory: ${__dirname}`);
+    logger.info(`Log level: DEBUG (verbose mode enabled)`);
+    
+    // Check if essential files exist
+    const filesToCheck = ['index.html', 'style.css', 'config.json'];
+    filesToCheck.forEach(file => {
+        const filePath = path.join(__dirname, file);
+        if (fs.existsSync(filePath)) {
+            logger.debug(`[VERBOSE] File found: ${file}`);
+        } else {
+            logger.warn(`File not found: ${file}`);
+        }
+    });
+    
     const { exec } = require('child_process');
     const isWindows = process.platform === 'win32';
     const command = isWindows ? `start http://127.0.0.1:${PORT}` : `open http://127.0.0.1:${PORT}`;
