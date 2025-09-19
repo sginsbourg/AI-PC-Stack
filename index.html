@@ -102,7 +102,7 @@
         // Fetch and render apps
         async function loadApps() {
             try {
-                const response = await fetch('/api/apps');
+                const response = await fetch('/api/apps', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
                 if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 const { apps } = await response.json();
                 const appsContainer = document.getElementById('apps-container');
@@ -131,7 +131,7 @@
                             <p><strong>Prerequisites:</strong> ${app.prerequisites.join(', ') || 'None'}</p>
                         </div>
                         <div class="card-actions">
-                            <button class="launch-btn" onclick="launchApp('${app.filename}', '${app.app_name}')">Launch</button>
+                            <button class="launch-btn" onclick="launchApp('${encodeURIComponent(app.filename)}', '${app.app_name}')">Launch</button>
                             <button class="open-btn" ${app.url ? '' : 'disabled'} onclick="openApp('${app.url}')">Open</button>
                             <button class="edit-btn" onclick="editApp(${index})">Edit</button>
                             <button class="delete-btn" onclick="deleteApp(${index})">Delete</button>
@@ -147,23 +147,48 @@
             }
         }
 
-        // Launch app
-        async function launchApp(filename, appName) {
+        // Launch app with retry logic
+        async function launchApp(encodedFilename, appName) {
             try {
-                const response = await fetch('/api/launch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filenames: [filename] })
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                const result = await response.json();
-                document.getElementById('status').textContent = result.message || `Launched ${appName} successfully`;
-                document.getElementById('status').className = 'status ' + (result.success ? 'success' : 'error');
-                await loadApps(); // Refresh app list to update status
+                const filename = decodeURIComponent(encodedFilename);
+                console.log(`Launching ${appName} with filename: ${filename}`);
+                document.getElementById('status').textContent = `Attempting to launch ${appName}...`;
+                document.getElementById('status').className = 'status info';
+
+                // Retry fetch up to 3 times
+                let attempts = 0;
+                const maxAttempts = 3;
+                while (attempts < maxAttempts) {
+                    try {
+                        const response = await fetch('/api/launch', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ filenames: [filename] })
+                        });
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`HTTP ${response.status}: ${errorText}`);
+                        }
+                        const result = await response.json();
+                        console.log('Launch response:', result);
+                        document.getElementById('status').textContent = result.message || `Launched ${appName} successfully`;
+                        document.getElementById('status').className = 'status ' + (result.success ? 'success' : 'error');
+                        await loadApps();
+                        return;
+                    } catch (error) {
+                        attempts++;
+                        if (attempts === maxAttempts) {
+                            throw error;
+                        }
+                        console.log(`Retry ${attempts}/${maxAttempts} for ${appName}`);
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+                    }
+                }
             } catch (error) {
                 console.error(`Error launching ${appName}:`, error);
                 document.getElementById('status').textContent = `Error launching ${appName}: ${error.message}`;
                 document.getElementById('status').className = 'status error';
+                alert(`Failed to launch ${appName}: ${error.message}`);
             }
         }
 

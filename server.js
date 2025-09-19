@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const fs = require('fs-extra');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const path = require('path');
 const logger = require('winston');
 const net = require('net');
@@ -27,6 +27,12 @@ const HUB_FILE = path.resolve(__dirname, 'server.js');
 // Middleware
 app.use(bodyParser.json());
 app.use(express.static(__dirname, { index: false }));
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    next();
+});
 
 // Check if a port is in use
 function checkPort(host, port) {
@@ -58,7 +64,9 @@ function loadConfig() {
             fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
             return defaultConfig;
         }
-        return fs.readJsonSync(CONFIG_FILE);
+        const config = fs.readJsonSync(CONFIG_FILE);
+        logger.info(`Loaded config with ${config.length} apps`);
+        return config;
     } catch (error) {
         logger.error(`Error loading config: ${error.message}`);
         return [];
@@ -69,6 +77,7 @@ function loadConfig() {
 function saveConfig(apps) {
     try {
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(apps, null, 2));
+        logger.info('Configuration saved successfully');
         return { success: true, message: 'Configuration saved successfully' };
     } catch (error) {
         logger.error(`Error saving config: ${error.message}`);
@@ -78,34 +87,83 @@ function saveConfig(apps) {
 
 // Launch application
 async function launchApp(filenames) {
+    const apps = loadConfig();
     const results = [];
     for (const filename of filenames) {
+        logger.info(`Attempting to launch filename: ${filename}`);
         if (filename === HUB_FILE) {
+            logger.error(`Cannot launch the hub itself: ${filename}`);
             results.push({ success: false, message: `Cannot launch the hub itself: ${filename}` });
             continue;
         }
         try {
-            const apps = loadConfig();
             const app = apps.find(a => a.filename === filename);
             if (!app) {
+                logger.error(`Application not found: ${filename}`);
                 results.push({ success: false, message: `Application not found: ${filename}` });
                 continue;
             }
-            // Check prerequisites
+
+            // Normalize path for Windows
+            const normalizedPath = path.normalize(filename);
+            logger.info(`Normalized path: ${normalizedPath}`);
+            if (!fs.existsSync(normalizedPath)) {
+                logger.error(`File not found: ${normalizedPath}`);
+                results.push({ success: false, message: `File not found: ${normalizedPath}` });
+                continue;
+            }
+
+            // Check prerequisites (log warnings, don't block)
             for (const prereq of app.prerequisites) {
                 const prereqApp = apps.find(a => a.app_name === prereq || a.filename === prereq);
                 if (prereqApp && prereqApp.url) {
                     const [host, port] = prereqApp.url.replace('http://', '').split(':');
                     if (!(await checkPort(host, parseInt(port)))) {
-                        results.push({ success: false, message: `Prerequisite ${prereq} not running` });
-                        continue;
+                        logger.warn(`Prerequisite ${prereq} not running for ${app.app_name}`);
                     }
                 }
             }
-            // Launch app
-            spawn(filename, { shell: false, detached: true, stdio: 'ignore' }).unref();
-            results.push({ success: true, message: `Launched ${app.app_name}` });
+
+            // Try spawn first
+            const extension = path.extname(normalizedPath).toLowerCase();
+            const isWindows = process.platform === 'win32';
+            const options = { 
+                shell: isWindows && (extension === '.bat' || extension === '.cmd'),
+                detached: true,
+                stdio: 'ignore'
+            };
+            logger.info(`Spawning ${normalizedPath} with options: ${JSON.stringify(options)}`);
+            try {
+                const child = spawn(normalizedPath, [], options);
+                child.on('error', (error) => {
+                    logger.error(`Spawn error for ${app.app_name}: ${error.message}`);
+                });
+                child.unref();
+                logger.info(`Spawn successful for ${app.app_name}`);
+            } catch (spawnError) {
+                logger.warn(`Spawn failed for ${app.app_name}: ${spawnError.message}. Trying exec...`);
+                // Fallback to exec
+                await new Promise((resolve, reject) => {
+                    exec(`"${normalizedPath}"`, { windowsHide: false }, (error) => {
+                        if (error) {
+                            logger.error(`Exec error for ${app.app_name}: ${error.message}`);
+                            results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
+                            reject(error);
+                        } else {
+                            logger.info(`Exec successful for ${app.app_name}`);
+                            results.push({ success: true, message: `Launched ${app.app_name}` });
+                            resolve();
+                        }
+                    });
+                });
+            }
+
+            // Update app status
+            app.status = `Launched at ${new Date().toLocaleTimeString()}`;
+            app.status_class = 'success';
+            saveConfig(apps);
         } catch (error) {
+            logger.error(`Failed to launch ${filename}: ${error.message}`);
             results.push({ success: false, message: `Failed to launch ${filename}: ${error.message}` });
         }
     }
@@ -204,8 +262,14 @@ app.post('/api/launch', (req, res) => {
         logger.error('Invalid request: filenames must be an array.');
         return res.status(400).json({ success: false, message: 'Error: Invalid filenames array provided.' });
     }
-    const results = launchApp(filenames);
-    res.json(results);
+    try {
+        logger.info(`Received launch request for filenames: ${filenames.join(', ')}`);
+        const results = launchApp(filenames);
+        res.json(results);
+    } catch (error) {
+        logger.error(`Error in /api/launch: ${error.message}`);
+        res.status(500).json({ success: false, message: `Error launching apps: ${error.message}` });
+    }
 });
 
 // Serve the main page
