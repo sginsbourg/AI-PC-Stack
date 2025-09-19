@@ -1,4 +1,4 @@
 @echo off
 cd /d "C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\podcast-generator"
-npm start
+npm start podcast_server.js
 pause

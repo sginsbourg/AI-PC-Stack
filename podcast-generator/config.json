@@ -1,0 +1,13 @@
+{
+  "app_name": "Podcast Generator",
+  "description": "AI Podcast Generator from PDF with research, script review, and upload",
+  "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_podcast_gen.bat",
+  "url": "http://localhost:3001",
+  "launch_delay": 3,
+  "prerequisites": ["Ollama Server"],
+  "status": "",
+  "status_class": "",
+  "melo_path": "C:\\Users\\sgins\\AI_STACK\\MeloTTS\\venv-melo\\Scripts\\python.exe",
+  "ai_voice_script": "C:\\Users\\sgins\\AI_STACK\\MeloTTS\\ai_voice_assistant.py",
+  "ollama_start_script": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_ollama.bat"
+}
