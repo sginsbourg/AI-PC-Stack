@@ -34,9 +34,9 @@ app.use((req, res, next) => {
     next();
 });
 
-// Test endpoint for debugging
-app.get('/api/test', (req, res) => {
-    res.json({ success: true, message: 'API is working' });
+// Health endpoint for debugging
+app.get('/api/health', (req, res) => {
+    res.json({ success: true, message: 'Server is healthy', timestamp: new Date().toISOString() });
 });
 
 // Check if a port is in use
@@ -129,34 +129,32 @@ async function launchApp(filenames) {
                 }
             }
 
-            // Try spawn first
+            // Use exec for .bat files on Windows
             const extension = path.extname(normalizedPath).toLowerCase();
-            const isWindows = process.platform === 'win32';
-            const options = { 
-                shell: isWindows && (extension === '.bat' || extension === '.cmd'),
-                detached: true,
-                stdio: 'ignore'
-            };
-            logger.info(`Spawning ${normalizedPath} with options: ${JSON.stringify(options)}`);
-            try {
-                const child = spawn(normalizedPath, [], options);
+            if (extension === '.bat' || extension === '.cmd') {
+                logger.info(`Using exec for ${normalizedPath}`);
+                await new Promise((resolve, reject) => {
+                    exec(`cmd /c "${normalizedPath}"`, { windowsHide: false }, (error, stdout, stderr) => {
+                        if (error) {
+                            logger.error(`Exec error for ${app.app_name}: ${error.message}. Stderr: ${stderr}`);
+                            results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
+                            reject(error);
+                        } else {
+                            logger.info(`Exec successful for ${app.app_name}. Stdout: ${stdout}`);
+                            results.push({ success: true, message: `Launched ${app.app_name}` });
+                            resolve();
+                        }
+                    });
+                });
+            } else {
+                logger.info(`Using spawn for ${normalizedPath}`);
+                const child = spawn(normalizedPath, [], { shell: false, detached: true, stdio: 'ignore' });
                 child.on('error', (error) => {
                     logger.error(`Spawn error for ${app.app_name}: ${error.message}`);
+                    results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
                 });
                 child.unref();
-                logger.info(`Spawn successful for ${app.app_name}`);
-            } catch (spawnError) {
-                logger.warn(`Spawn failed for ${app.app_name}: ${spawnError.message}. Trying exec...`);
-                // Fallback to exec
-                exec(`"${normalizedPath}"`, { shell: isWindows && (extension === '.bat' || extension === '.cmd') }, (error, stdout, stderr) => {
-                    if (error) {
-                        logger.error(`Exec error for ${app.app_name}: ${error.message}. Stderr: ${stderr}`);
-                        results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
-                    } else {
-                        logger.info(`Exec successful for ${app.app_name}. Stdout: ${stdout}`);
-                        results.push({ success: true, message: `Launched ${app.app_name}` });
-                    }
-                });
+                results.push({ success: true, message: `Launched ${app.app_name}` });
             }
 
             // Update app status
