@@ -2,7 +2,7 @@
   {
     "app_name": "Text Generation Web UI",
     "description": "A Gradio web UI for Large Language Models",
-    "filename": "C:\\Users\\sgins\\AI_STACK\\tg-webui\\start_windows.bat",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_text_gen.bat",
     "url": "http://localhost:7861",
     "launch_delay": 5,
     "prerequisites": [],
