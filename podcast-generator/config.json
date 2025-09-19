@@ -9,5 +9,6 @@
   "status_class": "",
   "melo_path": "C:\\Users\\sgins\\AI_STACK\\MeloTTS\\venv-melo\\Scripts\\python.exe",
   "ai_voice_script": "C:\\Users\\sgins\\AI_STACK\\MeloTTS\\ai_voice_assistant.py",
-  "ollama_start_script": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_ollama.bat"
+  "ollama_start_script": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_ollama.bat",
+  "ffmpeg_bin": "C:\\ffmpeg\\bin"
 }
