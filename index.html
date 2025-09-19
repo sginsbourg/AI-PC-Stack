@@ -102,7 +102,7 @@
         // Fetch and render apps
         async function loadApps() {
             try {
-                const response = await fetch('/api/apps', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+                const response = await fetch('/api/apps');
                 if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 const { apps } = await response.json();
                 const appsContainer = document.getElementById('apps-container');
@@ -147,48 +147,49 @@
             }
         }
 
-        // Launch app with retry logic
+        // Launch app with improved debugging
         async function launchApp(encodedFilename, appName) {
-            try {
-                const filename = decodeURIComponent(encodedFilename);
-                console.log(`Launching ${appName} with filename: ${filename}`);
-                document.getElementById('status').textContent = `Attempting to launch ${appName}...`;
-                document.getElementById('status').className = 'status info';
+            const filename = decodeURIComponent(encodedFilename);
+            console.log(`Button clicked: Launching ${appName} with filename: ${filename}`);
+            document.getElementById('status').textContent = `Attempting to launch ${appName}...`;
+            document.getElementById('status').className = 'status info';
 
-                // Retry fetch up to 3 times
-                let attempts = 0;
-                const maxAttempts = 3;
-                while (attempts < maxAttempts) {
-                    try {
-                        const response = await fetch('/api/launch', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ filenames: [filename] })
-                        });
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`HTTP ${response.status}: ${errorText}`);
-                        }
+            let attempts = 0;
+            const maxAttempts = 3;
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await fetch('/api/launch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filenames: [filename] })
+                    });
+                    const contentType = response.headers.get("content-type");
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    if (contentType && contentType.includes("application/json")) {
                         const result = await response.json();
                         console.log('Launch response:', result);
                         document.getElementById('status').textContent = result.message || `Launched ${appName} successfully`;
                         document.getElementById('status').className = 'status ' + (result.success ? 'success' : 'error');
                         await loadApps();
                         return;
-                    } catch (error) {
-                        attempts++;
-                        if (attempts === maxAttempts) {
-                            throw error;
-                        }
-                        console.log(`Retry ${attempts}/${maxAttempts} for ${appName}`);
-                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+                    } else {
+                        const text = await response.text();
+                        throw new Error(`Unexpected response: ${text}`);
+                    }
+                } catch (error) {
+                    attempts++;
+                    console.error(`Attempt ${attempts}/${maxAttempts} failed for ${appName}:`, error);
+                    if (attempts === maxAttempts) {
+                        document.getElementById('status').textContent = `Error launching ${appName}: ${error.message}`;
+                        document.getElementById('status').className = 'status error';
+                        alert(`Failed to launch ${appName}: ${error.message}`);
+                    } else {
+                        await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Exponential backoff
                     }
                 }
-            } catch (error) {
-                console.error(`Error launching ${appName}:`, error);
-                document.getElementById('status').textContent = `Error launching ${appName}: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-                alert(`Failed to launch ${appName}: ${error.message}`);
             }
         }
 

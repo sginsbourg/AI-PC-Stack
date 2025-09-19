@@ -34,6 +34,11 @@ app.use((req, res, next) => {
     next();
 });
 
+// Test endpoint for debugging
+app.get('/api/test', (req, res) => {
+    res.json({ success: true, message: 'API is working' });
+});
+
 // Check if a port is in use
 function checkPort(host, port) {
     return new Promise((resolve) => {
@@ -143,18 +148,14 @@ async function launchApp(filenames) {
             } catch (spawnError) {
                 logger.warn(`Spawn failed for ${app.app_name}: ${spawnError.message}. Trying exec...`);
                 // Fallback to exec
-                await new Promise((resolve, reject) => {
-                    exec(`"${normalizedPath}"`, { windowsHide: false }, (error) => {
-                        if (error) {
-                            logger.error(`Exec error for ${app.app_name}: ${error.message}`);
-                            results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
-                            reject(error);
-                        } else {
-                            logger.info(`Exec successful for ${app.app_name}`);
-                            results.push({ success: true, message: `Launched ${app.app_name}` });
-                            resolve();
-                        }
-                    });
+                exec(`"${normalizedPath}"`, { shell: isWindows && (extension === '.bat' || extension === '.cmd') }, (error, stdout, stderr) => {
+                    if (error) {
+                        logger.error(`Exec error for ${app.app_name}: ${error.message}. Stderr: ${stderr}`);
+                        results.push({ success: false, message: `Failed to launch ${app.app_name}: ${error.message}` });
+                    } else {
+                        logger.info(`Exec successful for ${app.app_name}. Stdout: ${stdout}`);
+                        results.push({ success: true, message: `Launched ${app.app_name}` });
+                    }
                 });
             }
 
