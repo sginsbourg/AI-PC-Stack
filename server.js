@@ -213,7 +213,7 @@ async function launchApp(filenames) {
     return results.length === 1 ? results[0] : results;
 }
 
-// Routes (keep all other routes the same as before)
+// Routes
 app.get('/api/apps', (req, res) => {
     try {
         const apps = loadConfig();
@@ -274,7 +274,7 @@ app.delete('/api/delete-app', (req, res) => {
             res.status(400).json({ success: false, message: 'Error: Invalid application index!' });
         }
     } catch (error) {
-        logger.error(`Error deleting app: ${error.message`);
+        logger.error(`Error deleting app: ${error.message}`);
         res.status(500).json({ success: false, message: `Failed to delete application: ${error.message}` });
     }
 });
