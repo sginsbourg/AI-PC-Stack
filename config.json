@@ -25,7 +25,9 @@
     "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_openmanus.bat",
     "url": "http://localhost:8501",
     "launch_delay": 5,
-    "prerequisites": ["Ollama Server"],
+    "prerequisites": [
+      "Ollama Server"
+    ],
     "status": "",
     "status_class": ""
   },
@@ -35,7 +37,9 @@
     "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_melotts.bat",
     "url": "",
     "launch_delay": 0,
-    "prerequisites": ["Ollama Server"],
+    "prerequisites": [
+      "Ollama Server"
+    ],
     "status": "",
     "status_class": ""
   },
@@ -45,7 +49,19 @@
     "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_podcast_gen.bat",
     "url": "http://localhost:3001",
     "launch_delay": 3,
-    "prerequisites": ["Ollama Server"],
+    "prerequisites": [
+      "Ollama Server"
+    ],
+    "status": "",
+    "status_class": ""
+  },
+  {
+    "app_name": "Open-Sora Video Generator",
+    "description": "Text-to-video, image-to-video, and video-to-video generation using Open-Sora with Streamlit UI",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_opensora.bat",
+    "url": "http://localhost:8502",
+    "launch_delay": 10,
+    "prerequisites": [],
     "status": "",
     "status_class": ""
   }

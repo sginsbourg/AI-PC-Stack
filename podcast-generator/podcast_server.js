@@ -1,37 +1,23 @@
 /**
  * Podcast Generator App - Resilient Redesign with Enhanced Debugging
  * 
- * Enhancements:
- * - Fallback FFmpeg PATH addition (C:\ffmpeg\bin).
- * - SKIP_STARTUP_CHECKS env var to bypass FFmpeg/Ollama checks.
- * - Safe child_process handling to avoid DEP0190 warnings.
- * - Automatic port fallback (3001 -> 3002).
- * - Granular logging for startup, PATH, FFmpeg, and port binding.
- * - Non-fatal startup checks with warnings.
+ * New Improvements:
+ * - Log before any imports to catch early failures.
+ * - Wrapper for child_process to trace DEP0190 warnings.
+ * - FORCE_STARTUP env var to skip all checks for debugging.
+ * - Detailed config path checks with permissions.
+ * - Explicit FFmpeg test invocation.
+ * - Enhanced crash report with module versions.
  * 
  * Workflow: (unchanged)
  * Dependencies: Express, Multer, pdf-parse, axios, cheerio, fluent-ffmpeg, form-data, fs-extra, winston.
  * Launch: node podcast_server.js (default http://localhost:3001).
  */
 
-const express = require('express');
-const multer = require('multer');
-const pdf = require('pdf-parse');
-const axios = require('axios');
-const cheerio = require('cheerio');
-const ffmpeg = require('fluent-ffmpeg');
-const FormData = require('form-data');
-const fs = require('fs-extra');
-const path = require('path');
+// Immediate logging
 const winston = require('winston');
-const { spawn, exec } = require('child_process');
-const net = require('net'); // For port checking
-const config = require('./config.json');
-
-// Logging setup
-const logLevel = process.env.DEBUG === 'true' ? 'debug' : 'info';
 const logger = winston.createLogger({
-  level: logLevel,
+  level: process.env.DEBUG === 'true' ? 'debug' : 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
@@ -42,11 +28,115 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'podcast-gen.log' })
   ]
 });
+logger.info('Podcast Server script execution started');
+
+// Module imports
+let express, multer, pdf, axios, cheerio, ffmpeg, FormData, fs, path, net, child_process;
+try {
+  express = require('express');
+  multer = require('multer');
+  pdf = require('pdf-parse');
+  axios = require('axios');
+  cheerio = require('cheerio');
+  ffmpeg = require('fluent-ffmpeg');
+  FormData = require('form-data');
+  fs = require('fs-extra');
+  path = require('path');
+  net = require('net');
+  child_process = require('child_process');
+  logger.debug('All modules loaded successfully');
+} catch (error) {
+  logger.error(`Module import failed: ${error.message}`);
+  process.exit(1);
+}
+
+// Wrap child_process to trace DEP0190
+const originalExec = child_process.exec;
+child_process.exec = function (command, options, callback) {
+  if (options && options.shell) {
+    logger.warn(`Detected shell: true in child_process.exec: ${command}`);
+    logger.debug(`Call stack: ${new Error().stack}`);
+  }
+  return originalExec.apply(this, arguments);
+};
+
+const { spawn, execFile } = child_process;
+
+// Log system and module details
+const moduleVersions = {
+  express: require('express/package.json').version,
+  multer: require('multer/package.json').version,
+  'pdf-parse': require('pdf-parse/package.json').version,
+  axios: require('axios/package.json').version,
+  cheerio: require('cheerio/package.json').version,
+  'fluent-ffmpeg': require('fluent-ffmpeg/package.json').version,
+  'form-data': require('form-data/package.json').version,
+  'fs-extra': require('fs-extra/package.json').version,
+  winston: require('winston/package.json').version
+};
+logger.debug(`System: Node ${process.version}, Platform ${process.platform}, PID ${process.pid}`);
+logger.debug(`Module versions: ${JSON.stringify(moduleVersions, null, 2)}`);
+logger.debug(`Current process.env.PATH: ${process.env.PATH}`);
+
+// Config
+let config;
+try {
+  config = require('./config.json');
+  logger.debug('Config.json loaded');
+} catch (error) {
+  logger.error(`Config loading failed: ${error.message}`);
+  if (process.env.FORCE_STARTUP !== 'true') process.exit(1);
+  logger.warn('Continuing due to FORCE_STARTUP=true');
+  config = {};
+}
+
+let OLLAMA_PORT, OLLAMA_URL, MELO_PATH, AI_VOICE_SCRIPT, OLLAMA_START_SCRIPT, FFMPEG_BIN;
+try {
+  logger.debug('Validating config fields');
+  OLLAMA_PORT = process.env.OLLAMA_PORT || 11435;
+  OLLAMA_URL = `http://localhost:${OLLAMA_PORT}/api/generate`;
+  MELO_PATH = config.melo_path || '';
+  AI_VOICE_SCRIPT = config.ai_voice_script || '';
+  OLLAMA_START_SCRIPT = config.ollama_start_script || '';
+  FFMPEG_BIN = config.ffmpeg_bin || 'C:\\ffmpeg\\bin';
+
+  const paths = [
+    { name: 'MeloTTS Python', path: MELO_PATH },
+    { name: 'AI Voice Script', path: AI_VOICE_SCRIPT },
+    { name: 'Ollama Start Script', path: OLLAMA_START_SCRIPT },
+    { name: 'FFmpeg Bin', path: FFMPEG_BIN }
+  ];
+  for (const { name, path } of paths) {
+    if (!path) {
+      logger.warn(`${name} path not defined in config`);
+      continue;
+    }
+    try {
+      if (!fs.existsSync(path)) {
+        logger.warn(`${name} path does not exist: ${path}`);
+      } else {
+        logger.debug(`${name} path validated: ${path}`);
+        if (name === 'FFmpeg Bin') {
+          const files = fs.readdirSync(path);
+          logger.debug(`FFmpeg bin contents: ${files.join(', ')}`);
+          const ffmpegPath = path.join(path, 'ffmpeg.exe');
+          const stats = fs.statSync(ffmpegPath);
+          logger.debug(`FFmpeg executable: ${ffmpegPath}, Size: ${stats.size} bytes, Readable: ${fs.accessSync(ffmpegPath, fs.constants.R_OK)}`);
+        }
+      }
+    } catch (error) {
+      logger.error(`Error checking ${name} path ${path}: ${error.message}`);
+    }
+  }
+} catch (error) {
+  logger.error(`Config validation failed: ${error.message}`);
+  if (process.env.FORCE_STARTUP !== 'true') process.exit(1);
+  logger.warn('Continuing due to FORCE_STARTUP=true');
+}
 
 // App setup
 const app = express();
-const BASE_PORT = 3001;
-const FALLBACK_PORT = 3002;
+const PORTS = [3001, 3002, 3003];
 const HUB_URL = 'http://localhost:7860';
 const upload = multer({ dest: 'uploads/' });
 app.use(express.static('public'));
@@ -63,40 +153,30 @@ try {
   logger.debug(`Directories ensured: ${TMP_DIR}, ${AUDIO_DIR}`);
 } catch (error) {
   logger.error(`Failed to create directories: ${error.message}`);
-  process.exit(1);
+  if (process.env.FORCE_STARTUP !== 'true') process.exit(1);
+  logger.warn('Continuing due to FORCE_STARTUP=true');
 }
 
-// Config
-let OLLAMA_PORT, OLLAMA_URL, MELO_PATH, AI_VOICE_SCRIPT, OLLAMA_START_SCRIPT, FFMPEG_BIN;
+// Set FFmpeg path
 try {
-  logger.debug('Validating config.json');
-  OLLAMA_PORT = process.env.OLLAMA_PORT || 11435;
-  OLLAMA_URL = `http://localhost:${OLLAMA_PORT}/api/generate`;
-  MELO_PATH = config.melo_path;
-  AI_VOICE_SCRIPT = config.ai_voice_script;
-  OLLAMA_START_SCRIPT = config.ollama_start_script;
-  FFMPEG_BIN = config.ffmpeg_bin || 'C:\\ffmpeg\\bin';
-
-  // Validate paths
-  const paths = [
-    { name: 'MeloTTS Python', path: MELO_PATH },
-    { name: 'AI Voice Script', path: AI_VOICE_SCRIPT },
-    { name: 'Ollama Start Script', path: OLLAMA_START_SCRIPT },
-    { name: 'FFmpeg Bin', path: FFMPEG_BIN }
-  ];
-  for (const { name, path } of paths) {
-    if (!fs.existsSync(path)) {
-      logger.warn(`${name} path does not exist: ${path}`);
-    } else {
-      logger.debug(`${name} path validated: ${path}`);
-    }
+  const ffmpegPath = path.join(FFMPEG_BIN, 'ffmpeg.exe');
+  if (fs.existsSync(ffmpegPath)) {
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    logger.debug(`Set fluent-ffmpeg path: ${ffmpegPath}`);
+  } else {
+    logger.warn(`FFmpeg executable not found at ${ffmpegPath}`);
   }
 } catch (error) {
-  logger.error(`Config validation failed: ${error.message}`);
-  if (process.env.SKIP_STARTUP_CHECKS !== 'true') {
-    process.exit(1);
-  }
-  logger.warn('Continuing due to SKIP_STARTUP_CHECKS=true');
+  logger.error(`Failed to set FFmpeg path: ${error.message}`);
+}
+
+// Test FFmpeg directly
+try {
+  const ffmpegPath = path.join(FFMPEG_BIN, 'ffmpeg.exe');
+  const { stdout } = execFileSync(ffmpegPath, ['-version']);
+  logger.info(`FFmpeg version: ${stdout.split('\n')[0]}`);
+} catch (error) {
+  logger.warn(`Direct FFmpeg test failed: ${error.message}`);
 }
 
 // Royalty-free music URLs
@@ -104,7 +184,7 @@ const INTRO_MUSIC_URL = 'https://cdn.pixabay.com/audio/2022/03/10/audio_5a7b7c3a
 const OUTRO_MUSIC_URL = 'https://cdn.pixabay.com/audio/2022/03/15/audio_8f2d4e1a4b.mp3';
 const TRANSITION_EFFECT_URL = 'https://cdn.pixabay.com/audio/2022/03/20/audio_9e3f5a2b6c.mp3';
 
-// Check if port is available
+// Check port availability
 async function checkPort(port) {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -134,7 +214,7 @@ async function checkOllamaHealth() {
   }
 }
 
-// Auto-launch Ollama via hub
+// Auto-launch Ollama
 async function launchOllama() {
   try {
     logger.debug(`Attempting to launch Ollama via hub: ${HUB_URL}`);
@@ -306,7 +386,10 @@ async function generateTTS(text, voice = 'EN-BR', outputFile) {
     try {
       logger.debug(`Generating TTS for voice ${voice}: ${text.substring(0, 100)}... to ${outputFile}`);
       const scriptPath = AI_VOICE_SCRIPT;
-      const python = spawn(MELO_PATH, [scriptPath, text, voice, outputFile], { cwd: path.dirname(scriptPath) });
+      const python = spawn(MELO_PATH, [scriptPath, text, voice, outputFile], {
+        cwd: path.dirname(scriptPath),
+        shell: false
+      });
       
       let stdout = '';
       let stderr = '';
@@ -317,7 +400,7 @@ async function generateTTS(text, voice = 'EN-BR', outputFile) {
       });
       
       python.stderr.on('data', (data) => {
-        stderr += data.toString();
+        stderr = data.toString();
         logger.error(`TTS stderr: ${data.toString().trim()}`);
       });
       
@@ -548,7 +631,7 @@ app.post('/generate-audio', async (req, res) => {
     if (!fs.existsSync(effect)) await downloadResource(TRANSITION_EFFECT_URL, effect);
 
     const finalAudio = `audio/podcast_${Date.now()}.wav`;
-    await mixAudio(combinedAudio, intro, outro, effect, finalAudio);
+    await mixAudio(combinedAudio, intro, outro, effect, finalFile);
     await cleanupTempFiles();
 
     logger.info(`Audio generation completed: ${finalAudio}`);
@@ -613,25 +696,51 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
-// Start server with enhanced checks
+// Crash report on exit
+process.on('exit', (code) => {
+  logger.error(`Process exiting with code ${code}`);
+  logger.error(`Crash report: Node ${process.version}, Platform ${process.platform}, PATH: ${process.env.PATH}, Modules: ${JSON.stringify(moduleVersions, null, 2)}`);
+});
+
+// Global error handlers
+process.on('uncaughtException', (err) => {
+  logger.error(`Uncaught exception: ${err.message} - Stack: ${err.stack}`);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(`Unhandled promise rejection: ${reason}`);
+});
+
+// Start server
 async function startServer() {
   try {
     logger.info('Starting Podcast Generator startup checks');
-    logger.debug(`Environment: Node ${process.version}, Platform ${process.platform}, PID ${process.pid}`);
-    logger.debug(`Current process.env.PATH: ${process.env.PATH}`);
+
+    if (process.env.FORCE_STARTUP === 'true') {
+      logger.warn('FORCE_STARTUP=true, skipping all startup checks');
+      const server = app.listen(PORTS[0], () => {
+        logger.info(`Podcast Generator running on http://localhost:${PORTS[0]} (forced)`);
+        logger.info(`Debug mode: ${logLevel === 'debug'}`);
+        logger.info('For detailed logs, check podcast-gen.log');
+      });
+      return;
+    }
 
     // Check port availability
-    let port = BASE_PORT;
-    let portAvailable = await checkPort(BASE_PORT);
-    if (!portAvailable) {
-      logger.warn(`Port ${BASE_PORT} is in use, trying fallback port ${FALLBACK_PORT}`);
-      portAvailable = await checkPort(FALLBACK_PORT);
+    let selectedPort = null;
+    for (const port of PORTS) {
+      const portAvailable = await checkPort(port);
       if (portAvailable) {
-        port = FALLBACK_PORT;
-      } else {
-        throw new Error(`Both ports ${BASE_PORT} and ${FALLBACK_PORT} are in use`);
+        selectedPort = port;
+        break;
       }
+      logger.warn(`Port ${port} is in use`);
     }
+    if (!selectedPort) {
+      throw new Error(`No available ports: ${PORTS.join(', ')}. Try closing other applications or use FORCE_STARTUP=true.`);
+    }
+    logger.info(`Selected port: ${selectedPort}`);
 
     // Check FFmpeg
     let ffmpegAvailable = false;
@@ -671,22 +780,9 @@ async function startServer() {
       }
     }
 
-    // Get FFmpeg version (safe, no shell: true)
-    try {
-      const { stdout } = await new Promise((resolve, reject) => {
-        exec('ffmpeg -version', { shell: false }, (err, stdout, stderr) => {
-          if (err) reject(new Error(`FFmpeg version check failed: ${err.message}. Stderr: ${stderr}`));
-          resolve({ stdout, stderr });
-        });
-      });
-      logger.info(`FFmpeg version: ${stdout.split('\n')[0]}`);
-    } catch (error) {
-      logger.warn(`Failed to get FFmpeg version: ${error.message}`);
-    }
-
     const skipStartupChecks = process.env.SKIP_STARTUP_CHECKS === 'true';
     if (!ffmpegAvailable && !skipStartupChecks) {
-      logger.error('FFmpeg not found. Set SKIP_STARTUP_CHECKS=true to bypass (audio features will fail).');
+      logger.error('FFmpeg not found. Set SKIP_STARTUP_CHECKS=true or FORCE_STARTUP=true to bypass (audio features will fail).');
       process.exit(1);
     } else if (!ffmpegAvailable) {
       logger.warn('Bypassing FFmpeg check due to SKIP_STARTUP_CHECKS=true. Audio generation may fail.');
@@ -706,8 +802,8 @@ async function startServer() {
       logger.warn('Ollama not running initially. Will attempt launch on demand.');
     }
 
-    const server = app.listen(port, () => {
-      logger.info(`Podcast Generator running on http://localhost:${port}`);
+    const server = app.listen(selectedPort, () => {
+      logger.info(`Podcast Generator running on http://localhost:${selectedPort}`);
       logger.info(`Debug mode: ${logLevel === 'debug'}`);
       logger.info('For detailed logs, check podcast-gen.log');
     });
@@ -715,31 +811,21 @@ async function startServer() {
     server.on('error', (err) => {
       logger.error(`Server startup error: ${err.message}`);
       if (err.code === 'EADDRINUSE') {
-        logger.error(`Port ${port} is already in use. Try closing the conflicting process or using a different port.`);
+        logger.error(`Port ${selectedPort} is already in use. Try closing the conflicting process or using a different port.`);
       }
       process.exit(1);
     });
 
   } catch (error) {
     logger.error(`Startup failed: ${error.message}`);
-    if (process.env.SKIP_STARTUP_CHECKS !== 'true') {
+    if (process.env.FORCE_STARTUP !== 'true') {
       process.exit(1);
     }
-    logger.warn('Continuing due to SKIP_STARTUP_CHECKS=true');
-    app.listen(BASE_PORT, () => {
-      logger.info(`Podcast Generator running on http://localhost:${BASE_PORT} (forced)`);
+    logger.warn('Continuing due to FORCE_STARTUP=true');
+    app.listen(PORTS[0], () => {
+      logger.info(`Podcast Generator running on http://localhost:${PORTS[0]} (forced)`);
     });
   }
 }
-
-// Global error handlers
-process.on('uncaughtException', (err) => {
-  logger.error(`Uncaught exception: ${err.message} - Stack: ${err.stack}`);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error(`Unhandled promise rejection: ${reason}`);
-});
 
 startServer();
