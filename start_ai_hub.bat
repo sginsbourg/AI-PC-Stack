@@ -1,6 +1,6 @@
 @echo off
   color 1F
-  title AI HUB Windows Batch
+  title AI HUB
 
   setlocal enabledelayedexpansion
 

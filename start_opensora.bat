@@ -1,4 +1,5 @@
 @echo off
+title OpenSora
 echo Starting Open-Sora Web UI...
 
 :: Activate conda env (adjust path if needed, check with `conda info --base`)

@@ -74,5 +74,17 @@
     "prerequisites": [],
     "status": "",
     "status_class": ""
+  },
+  {
+    "app_name": "Multi-Agent Article Generator",
+    "description": "Multi-agent system using CrewAI and Ollama for generating articles, with Streamlit UI",
+    "filename": "C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack\\start_multi_agent.bat",
+    "url": "http://localhost:8504",
+    "launch_delay": 10,
+    "prerequisites": [
+      "Ollama Server"
+    ],
+    "status": "",
+    "status_class": ""
   }
 ]

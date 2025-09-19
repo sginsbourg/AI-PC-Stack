@@ -1,4 +1,5 @@
 @echo off
+title MeloTTS
 cd /d "C:\Users\sgins\AI_STACK\MeloTTS"
 call venv-melo\Scripts\activate.bat
 pip install -r requirements.txt

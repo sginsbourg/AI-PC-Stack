@@ -1,4 +1,5 @@
 @echo off
+title Orpheus-TTS
 echo Starting Orpheus-TTS Web UI...
 
 :: Activate conda env (adjust conda path if needed, check with `conda info --base`)
