@@ -1,3 +1,43 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script>```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,302 +45,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Hub Dashboard</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
             <h1>AI Hub Dashboard</h1>
         </header>
-        <div class="apps-container" id="apps-container">
-            <!-- App cards will be populated here -->
+        <div class="apps-container">
+            <p class="no-apps">No applications added yet. Use the form below to add a new application.</p>
         </div>
-        <div class="no-apps" id="no-apps" style="display: none;">
-            No applications added yet. Use the form below to add a new application.
+        <div class="form-section">
+            <div class="toggle-bar">
+                <button class="toggle-btn" data-target="add-app-form">Add New Application</button>
+                <button class="toggle-btn" data-target="config-form">Configuration</button>
+            </div>
+            <div class="form-card" id="add-app-form" style="display: none;">
+                <h2>Add New Application</h2>
+                <input type="text" id="app-name" placeholder="Application Name">
+                <textarea id="description" placeholder="Description"></textarea>
+                <input type="text" id="filename" placeholder="Filename (e.g., C:\path\to\script.bat)">
+                <input type="text" id="url" placeholder="URL (e.g., http://localhost:7860)">
+                <input type="number" id="launch-delay" placeholder="Launch Delay (seconds)">
+                <input type="text" id="prerequisites" placeholder="Prerequisites (comma-separated)">
+                <div class="form-actions">
+                    <button class="add-btn">➕ Add Application</button>
+                    <button class="clear-btn">🗑️ Clear Form</button>
+                    <button class="minimize-btn">Minimize</button>
+                </div>
+            </div>
+            <div class="config-card" id="config-form" style="display: none;">
+                <h2>Configuration</h2>
+                <div class="config-actions">
+                    <button class="save-btn">💾 Save Configuration</button>
+                    <button class="load-btn">🔄 Load Configuration</button>
+                    <button class="import-btn">📤 Import Configuration</button>
+                    <button class="minimize-btn">Minimize</button>
+                </div>
+            </div>
+            <div class="status">Ready</div>
         </div>
     </div>
-    <div class="form-section">
-        <div class="toggle-bar">
-            <button class="toggle-btn" onclick="toggleSection('form-card')">Add New Application</button>
-            <button class="toggle-btn" onclick="toggleSection('config-card')">Configuration</button>
-        </div>
-        <div class="form-card" id="form-card" style="display: none;">
-            <h2>Add New Application</h2>
-            <input type="text" id="app-name" placeholder="Application Name">
-            <input type="text" id="app-filename" placeholder="Filename">
-            <input type="text" id="app-url" placeholder="URL (optional)">
-            <input type="number" id="app-delay" placeholder="Launch Delay (seconds, optional)">
-            <input type="text" id="app-prerequisites" placeholder="Prerequisites (optional, comma-separated app names or indices)">
-            <textarea id="app-description" placeholder="Description (optional)"></textarea>
-            <div class="form-actions">
-                <button class="add-btn" onclick="addApp()">➕ Add Application</button>
-                <button class="clear-btn" onclick="clearForm()">🗑️ Clear Form</button>
-                <button class="minimize-btn" onclick="toggleSection('form-card')">Minimize</button>
-            </div>
-        </div>
-        <div class="config-card" id="config-card" style="display: none;">
-            <h2>Configuration</h2>
-            <div class="config-actions">
-                <button class="save-btn" onclick="saveConfig()">💾 Save Configuration</button>
-                <button class="load-btn" onclick="loadConfig()">🔄 Load Configuration</button>
-                <button class="import-btn" onclick="document.getElementById('config-file').click()">📤 Import Configuration</button>
-                <input type="file" id="config-file" style="display: none;" accept=".json" onchange="importConfig(this)">
-                <button class="minimize-btn" onclick="toggleSection('config-card')">Minimize</button>
-            </div>
-            <div class="status" id="status">Ready</div>
-        </div>
-    </div>
-    <script>
-        // Toggle form/config sections
-        function toggleSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            const isVisible = section.style.display === 'block';
-            section.style.display = isVisible ? 'none' : 'block';
-            const otherSectionId = sectionId === 'form-card' ? 'config-card' : 'form-card';
-            document.getElementById(otherSectionId).style.display = 'none';
-        }
-
-        // Fetch and render apps
-        async function loadApps() {
-            try {
-                const response = await fetch('/api/apps');
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                const { apps } = await response.json();
-                const appsContainer = document.getElementById('apps-container');
-                const noApps = document.getElementById('no-apps');
-                
-                if (apps.length === 0) {
-                    noApps.style.display = 'block';
-                    appsContainer.innerHTML = '';
-                    return;
-                }
-                
-                noApps.style.display = 'none';
-                appsContainer.innerHTML = '';
-                apps.forEach((app, index) => {
-                    const card = document.createElement('div');
-                    card.className = 'app-card';
-                    
-                    card.innerHTML = `
-                        <div class="card-header">
-                            <h3>${app.app_name}</h3>
-                        </div>
-                        <div class="card-content">
-                            <p><strong>Description:</strong> ${app.description}</p>
-                            <p><strong>Filename:</strong> ${app.filename}</p>
-                            <p><strong>URL:</strong> ${app.url || 'N/A'}</p>
-                            <p><strong>Launch Delay:</strong> ${app.launch_delay}s</p>
-                            <p><strong>Prerequisites:</strong> ${app.prerequisites.join(', ') || 'None'}</p>
-                        </div>
-                        <div class="card-actions">
-                            <button class="launch-btn" onclick="launchApp(${JSON.stringify(app.filename)}, ${JSON.stringify(app.app_name)})">Launch</button>
-                            <button class="open-btn" ${app.url ? '' : 'disabled'} onclick="openApp('${app.url}')">Open</button>
-                            <button class="edit-btn" onclick="editApp(${index})">Edit</button>
-                            <button class="delete-btn" onclick="deleteApp(${index})">Delete</button>
-                        </div>
-                        <div class="status ${app.status_class}">${app.status || 'Ready'}</div>
-                    `;
-                    appsContainer.appendChild(card);
-                });
-            } catch (error) {
-                console.error('Error loading apps:', error);
-                document.getElementById('status').textContent = `Error loading apps: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-
-        // Launch app with improved debugging
-        async function launchApp(filename, appName) {
-			console.log('=== CLIENT LAUNCH DEBUG ===');
-            console.log('Launching app:', appName, 'with filename:', filename);
-            document.getElementById('status').textContent = `Attempting to launch ${appName}...`;
-            document.getElementById('status').className = 'status info';
-
-            let attempts = 0;
-            const maxAttempts = 3;
-            while (attempts < maxAttempts) {
-                try {
-                    const response = await fetch('/api/launch', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ filenames: [filename] })
-                    });
-                    const contentType = response.headers.get("content-type");
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${errorText}`);
-                    }
-                    if (contentType && contentType.includes("application/json")) {
-                        const result = await response.json();
-                        console.log('Launch response:', result);
-                        document.getElementById('status').textContent = result.message || `Launched ${appName} successfully`;
-                        document.getElementById('status').className = 'status ' + (result.success ? 'success' : 'error');
-                        await loadApps();
-                        return;
-                    } else {
-                        const text = await response.text();
-                        throw new Error(`Unexpected response: ${text}`);
-                    }
-                } catch (error) {
-                    attempts++;
-                    console.error(`Attempt ${attempts}/${maxAttempts} failed for ${appName}:`, error);
-                    if (attempts === maxAttempts) {
-                        document.getElementById('status').textContent = `Error launching ${appName}: ${error.message}`;
-                        document.getElementById('status').className = 'status error';
-                        alert(`Failed to launch ${appName}: ${error.message}`);
-                    } else {
-                        await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Exponential backoff
-                    }
-                }
-            }
-        }
-
-        // Other functions (keep the rest the same)
-        async function addApp() {
-            const app = {
-                app_name: document.getElementById('app-name').value,
-                filename: document.getElementById('app-filename').value,
-                url: document.getElementById('app-url').value,
-                launch_delay: parseInt(document.getElementById('app-delay').value) || 0,
-                prerequisites: document.getElementById('app-prerequisites').value.split(',').map(p => p.trim()).filter(p => p),
-                description: document.getElementById('app-description').value,
-                status: '',
-                status_class: ''
-            };
-            try {
-                const response = await fetch('/api/add-app', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(app)
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                const result = await response.json();
-                if (result.success) {
-                    await loadApps();
-                    clearForm();
-                    document.getElementById('status').textContent = result.message;
-                    document.getElementById('status').className = 'status success';
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                document.getElementById('status').textContent = `Error adding app: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-
-        function clearForm() {
-            document.getElementById('app-name').value = '';
-            document.getElementById('app-filename').value = '';
-            document.getElementById('app-url').value = '';
-            document.getElementById('app-delay').value = '';
-            document.getElementById('app-prerequisites').value = '';
-            document.getElementById('app-description').value = '';
-        }
-
-        async function saveConfig() {
-            try {
-                const response = await fetch('/api/save-config', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ apps: (await (await fetch('/api/apps')).json()).apps })
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                const result = await response.json();
-                document.getElementById('status').textContent = result.message;
-                document.getElementById('status').className = 'status ' + (result.success ? 'success' : 'error');
-            } catch (error) {
-                document.getElementById('status').textContent = `Error saving config: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-
-        async function loadConfig() {
-            try {
-                await loadApps();
-                document.getElementById('status').textContent = 'Configuration loaded successfully';
-                document.getElementById('status').className = 'status success';
-            } catch (error) {
-                document.getElementById('status').textContent = `Error loading config: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-
-        async function importConfig(input) {
-            try {
-                const file = input.files[0];
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const apps = JSON.parse(e.target.result);
-                    const response = await fetch('/api/save-config', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ apps })
-                    });
-                    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    const result = await response.json();
-                    if (result.success) {
-                        await loadApps();
-                        document.getElementById('status').textContent = result.message;
-                        document.getElementById('status').className = 'status success';
-                    } else {
-                        throw new Error(result.message);
-                    }
-                };
-                reader.readAsText(file);
-            } catch (error) {
-                document.getElementById('status').textContent = `Error importing config: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-
-        async function openApp(url) {
-            if (url) window.open(url, '_blank');
-        }
-
-        async function editApp(index) {
-            try {
-                const response = await fetch('/api/apps');
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                const { apps } = await response.json();
-                const app = apps[index];
-                document.getElementById('app-name').value = app.app_name;
-                document.getElementById('app-filename').value = app.filename;
-                document.getElementById('app-url').value = app.url;
-                document.getElementById('app-delay').value = app.launch_delay;
-                document.getElementById('app-prerequisites').value = app.prerequisites.join(', ');
-                document.getElementById('app-description').value = app.description;
-                toggleSection('form-card');
-            } catch (error) {
-                document.getElementById('status').textContent = `Error editing app: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-
-        async function deleteApp(index) {
-            try {
-                const response = await fetch('/api/delete-app', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ index })
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                const result = await response.json();
-                if (result.success) {
-                    await loadApps();
-                    document.getElementById('status').textContent = result.message;
-                    document.getElementById('status').className = 'status success';
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                document.getElementById('status').textContent = `Error deleting app: ${error.message}`;
-                document.getElementById('status').className = 'status error';
-            }
-        }
-
-        // Load apps on page load
-        window.onload = loadApps;
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
+```
