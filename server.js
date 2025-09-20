@@ -1,26 +1,4 @@
-```javascript
-// Debug: Log file content and size to diagnose TypeError
 const fs = require('fs');
-try {
-    const fileContent = fs.readFileSync(__filename, 'utf8');
-    const fileSize = fs.statSync(__filename).size;
-    console.log('=== DEBUG: server.js Info ===');
-    console.log('File size: ' + fileSize + ' bytes');
-    console.log('First 5 lines:');
-    console.log(fileContent.split('\n').slice(0, 5).join('\n'));
-    console.log('====================');
-    const syntaxCheck = require('syntax-error');
-    const err = syntaxCheck(fileContent);
-    if (err) {
-        console.error('Syntax error in server.js:', err);
-        process.exit(1);
-    }
-    console.log('server.js syntax validated successfully');
-} catch (err) {
-    console.error('Failed to read/validate server.js:', err.message);
-    process.exit(1);
-}
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const { spawn } = require('child_process');
@@ -133,7 +111,7 @@ function loadConfig() {
             fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2));
             return defaultConfig;
         }
-        const config = fs.readJsonSync(CONFIG_FILE);
+        const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
         logger.debug('Loaded config with ' + config.length + ' apps');
         return config;
     } catch (error) {
@@ -449,4 +427,3 @@ app.listen(PORT, '0.0.0.0', () => {
         if (error) logger.error('Failed to open browser: ' + error.message + ', Stack: ' + error.stack);
     });
 });
-```
