@@ -18,7 +18,7 @@ const services = {
     meloTTS: {
         name: "MeloTTS",
         path: "C:/Users/sgins/AI_STACK/MeloTTS",
-        startCommand: "python app.py",
+        startCommand: "python ai_voice_assistant.py",
         stopCommand: "taskkill /f /im python.exe",
         port: 8001,
         webInterface: true,

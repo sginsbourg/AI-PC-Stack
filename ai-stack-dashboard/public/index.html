@@ -770,6 +770,28 @@
                         document.getElementById('serverStatus').style.color = 'var(--danger)';
                     }
                 }, 5000);
+
+                // Auto-refresh running services count every 30 seconds
+                setInterval(async () => {
+                    await this.refreshRunningServices();
+                }, 30000);
+            }
+
+            async refreshRunningServices() {
+                try {
+                    const response = await fetch('/api/status');
+                    const status = await response.json();
+                    
+                    // Update the running services count
+                    document.getElementById('runningServices').textContent = status.active;
+                    
+                    // Also reload services to get updated status
+                    await this.loadServices();
+                    
+                    this.addLog('Auto-refresh: Updated running services count', 'info');
+                } catch (error) {
+                    this.addLog('Auto-refresh: Failed to update running services count', 'error');
+                }
             }
         }
 
