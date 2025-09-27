@@ -29,9 +29,9 @@ const services = {
     openManus: {
         name: "OpenManus",
         path: "C:/Users/sgins/AI_STACK/OpenManus", 
-        startCommand: "python main.py",
+        startCommand: "set OLLAMA_HOST=127.0.0.1:11435 & streamlit run openmanus_web.py",
         stopCommand: "taskkill /f /im python.exe",
-        port: 8002,
+        port: 8501,
         webInterface: true,
         description: "AI agent framework with tool integration",
         status: "stopped",
