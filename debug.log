@@ -1,9 +1,0 @@
-{"level":"info","message":"System Info: OS Windows_NT, Arch x64, Node vv24.8.0, CWD C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack"}
-{"level":"info","message":"=== AI HUB SERVER STARTING ==="}
-{"level":"info","message":"Server running at http://127.0.0.1:7860"}
-{"level":"info","message":"Serving from directory: C:\\Users\\sgins\\OneDrive\\Documents\\GitHub\\AI-PC-Stack"}
-{"level":"info","message":"Log level: DEBUG (verbose mode enabled)"}
-{"level":"debug","message":"[VERBOSE] File found: index.html, Size: 4224 bytes"}
-{"level":"debug","message":"[VERBOSE] File found: style.css, Size: 6164 bytes"}
-{"level":"debug","message":"[VERBOSE] File found: config.json, Size: 3092 bytes"}
-{"level":"debug","message":"[VERBOSE] File found: app.js, Size: 5048 bytes"}
