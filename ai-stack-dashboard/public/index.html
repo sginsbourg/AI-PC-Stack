@@ -244,6 +244,7 @@
         .btn-stop { background: var(--danger); color: white; }
         .btn-restart { background: var(--warning); color: white; }
         .btn-open { background: var(--info); color: white; }
+        .btn-verify { background: #8b5cf6; color: white; }
 
         .btn:hover:not(:disabled) {
             transform: translateY(-2px);
@@ -590,10 +591,16 @@
                                             onclick="dashboard.restartService('${key}')">
                                         <span>🔄</span> Restart
                                     </button>
-                                    ${service.webInterface ? `
+                                    ${service.webInterface && service.name !== 'Ollama' ? `
                                         <button class="btn btn-open" 
                                                 onclick="dashboard.openService(${service.port})">
                                             <span>🌐</span> Open
+                                        </button>
+                                    ` : ''}
+                                    ${service.name === 'Ollama' ? `
+                                        <button class="btn btn-verify" 
+                                                onclick="dashboard.verifyOllama()">
+                                            <span>✅</span> Verify
                                         </button>
                                     ` : ''}
                                 </div>
@@ -685,6 +692,11 @@
             openService(port) {
                 window.open(`http://localhost:${port}`, '_blank');
                 this.addLog(`Opened service on port ${port}`, 'info');
+            }
+
+            verifyOllama() {
+                window.open('http://localhost:11434/api/tags', '_blank');
+                this.addLog('Opened Ollama verification endpoint', 'info');
             }
 
             async startAllServices() {
