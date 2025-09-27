@@ -21,3 +21,4 @@ echo.
 echo Your AI tools are ready to manage!
 echo.
 pause
+exit
