@@ -3,6 +3,8 @@ setlocal EnableDelayedExpansion
 
 color 0A
 title Multi-Agent Application Setup Verification
+set PATH=%PATH%;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\ffmpeg\bin;C:\Program Files\Git\bin;C:\Windows\System32;C:\Users\sgins\miniconda3\Scripts; & python.exe -m pip install --upgrade pip
+cd /d "%~dp0" & set PATH=%PATH%;C:\Windows\System32\WindowsPowerShell\v1.0
 cls
 
 :: Set variables
