@@ -39,9 +39,9 @@ echo.
 
 :: Check Node.js
 echo Checking Node.js...
-node --version >nul 2>&1
+where node >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=*" %%i in ('node --version') do set NODE_VERSION=%%i
+    for /f "delims=" %%i in ('node --version') do set "NODE_VERSION=%%i"
     call :print_result 0 "Node.js installed (version: !NODE_VERSION!)"
 ) else (
     call :print_result 1 "Node.js not found. Install from https://nodejs.org/"
@@ -49,9 +49,9 @@ if %ERRORLEVEL%==0 (
 
 :: Check npm
 echo Checking npm...
-npm --version >nul 2>&1
+where npm >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=*" %%i in ('npm --version') do set NPM_VERSION=%%i
+    for /f "delims=" %%i in ('npm --version') do set "NPM_VERSION=%%i"
     call :print_result 0 "npm installed (version: !NPM_VERSION!)"
 ) else (
     call :print_result 1 "npm not found. Install with Node.js from https://nodejs.org/"
@@ -59,9 +59,9 @@ if %ERRORLEVEL%==0 (
 
 :: Check Docker
 echo Checking Docker...
-docker --version >nul 2>&1
+where docker >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=*" %%i in ('docker --version') do set DOCKER_VERSION=%%i
+    for /f "delims=" %%i in ('docker --version') do set "DOCKER_VERSION=%%i"
     call :print_result 0 "Docker installed (version: !DOCKER_VERSION!)"
 ) else (
     call :print_result 1 "Docker not found. Install Docker Desktop from https://www.docker.com/products/docker-desktop/"
@@ -69,9 +69,9 @@ if %ERRORLEVEL%==0 (
 
 :: Check Docker Compose
 echo Checking Docker Compose...
-docker-compose --version >nul 2>&1
+where docker-compose >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=*" %%i in ('docker-compose --version') do set DC_VERSION=%%i
+    for /f "delims=" %%i in ('docker-compose --version') do set "DC_VERSION=%%i"
     call :print_result 0 "Docker Compose installed (version: !DC_VERSION!)"
 ) else (
     call :print_result 1 "Docker Compose not found. Ensure Docker Desktop is installed."
@@ -79,9 +79,9 @@ if %ERRORLEVEL%==0 (
 
 :: Check Python
 echo Checking Python...
-python --version >nul 2>&1
+where python >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=*" %%i in ('python --version') do set PYTHON_VERSION=%%i
+    for /f "delims=" %%i in ('python --version') do set "PYTHON_VERSION=%%i"
     call :print_result 0 "Python installed (version: !PYTHON_VERSION!)"
 ) else (
     call :print_result 1 "Python not found. Install from https://www.python.org/downloads/"
@@ -91,7 +91,7 @@ if %ERRORLEVEL%==0 (
 echo Checking Locust...
 pip show locust >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=2 delims=:" %%i in ('pip show locust ^| findstr Version') do set LOCUST_VERSION=%%i
+    for /f "tokens=2 delims=:" %%i in ('pip show locust ^| findstr /C:"Version"') do set "LOCUST_VERSION=%%i"
     call :print_result 0 "Locust installed (version:!LOCUST_VERSION!)"
 ) else (
     call :print_result 1 "Locust not found. Install with: pip install locust"
@@ -99,9 +99,9 @@ if %ERRORLEVEL%==0 (
 
 :: Check Java (JDK for JMeter)
 echo Checking Java (JDK)...
-java -version >nul 2>&1
+where java >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=3" %%i in ('java -version 2^>^&1 ^| findstr version') do set JAVA_VERSION=%%i
+    for /f "tokens=3" %%i in ('java -version 2^>^&1 ^| findstr /C:"version"') do set "JAVA_VERSION=%%i"
     call :print_result 0 "Java installed (version: !JAVA_VERSION!)"
 ) else (
     call :print_result 1 "Java not found. Install JDK 17+ from https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html"
@@ -109,9 +109,9 @@ if %ERRORLEVEL%==0 (
 
 :: Check JMeter
 echo Checking JMeter...
-jmeter --version >nul 2>&1
+where jmeter >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=*" %%i in ('jmeter --version ^| findstr JMeter') do set JMETER_VERSION=%%i
+    for /f "delims=" %%i in ('jmeter --version ^| findstr /C:"JMeter"') do set "JMETER_VERSION=%%i"
     call :print_result 0 "JMeter installed (version: !JMETER_VERSION!)"
 ) else (
     call :print_result 1 "JMeter not found. Install from https://jmeter.apache.org/download_jmeter.cgi"
@@ -119,9 +119,9 @@ if %ERRORLEVEL%==0 (
 
 :: Check k6
 echo Checking k6...
-k6 version >nul 2>&1
+where k6 >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=*" %%i in ('k6 version') do set K6_VERSION=%%i
+    for /f "delims=" %%i in ('k6 version') do set "K6_VERSION=%%i"
     call :print_result 0 "k6 installed (version: !K6_VERSION!)"
 ) else (
     call :print_result 1 "k6 not found. Install from https://k6.io/docs/getting-started/installation/"
@@ -142,7 +142,7 @@ if %ERRORLEVEL%==0 (
     call :print_result 0 "tg-webui server running on port 5000"
 ) else (
     echo Attempting to start tg-webui...
-    start /B cmd /c "cd %AI_STACK_DIR% && python server.py --model deepseek-ai_DeepSeek-V3.1 --api"
+    start /B "" cmd /c "cd "%AI_STACK_DIR%" && python server.py --model deepseek-ai_DeepSeek-V3.1 --api"
     timeout /t 5 >nul
     netstat -an | find "5000" >nul
     if %ERRORLEVEL%==0 (
@@ -159,30 +159,7 @@ echo Checking Source Files in %ROOT_DIR%...
 echo.
 
 :: List of expected files
-set "FILES=^
-dashboard\index.html ^
-orchestrator\orchestrator.js ^
-orchestrator\package.json ^
-orchestrator\Dockerfile ^
-generator\generator.js ^
-generator\package.json ^
-generator\Dockerfile ^
-runner\runner.js ^
-runner\package.json ^
-runner\Dockerfile ^
-analyzer\analyzer.js ^
-analyzer\package.json ^
-analyzer\Dockerfile ^
-configs\.env ^
-configs\docker-compose.yml ^
-configs\prometheus.yml ^
-scripts\test-script.js ^
-scripts\locustfile.py ^
-scripts\test-plan.jmx ^
-results\k6\k6-results.json ^
-results\locust\locust-results.csv ^
-results\jmeter\jmeter-results.jtl ^
-README.md"
+set "FILES=dashboard\index.html orchestrator\orchestrator.js orchestrator\package.json orchestrator\Dockerfile generator\generator.js generator\package.json generator\Dockerfile runner\runner.js runner\package.json runner\Dockerfile analyzer\analyzer.js analyzer\package.json analyzer\Dockerfile configs\.env configs\docker-compose.yml configs\prometheus.yml scripts\test-script.js scripts\locustfile.py scripts\test-plan.jmx results\k6\k6-results.json results\locust\locust-results.csv results\jmeter\jmeter-results.jtl README.md"
 
 :: Check each file
 for %%f in (%FILES%) do (
@@ -235,7 +212,7 @@ for %%d in (orchestrator generator runner analyzer) do (
     if exist "%ROOT_DIR%\%%d\node_modules" (
         call :print_result 0 "Dependencies installed for %%d"
     ) else (
-        call :print_result 1 "Dependencies missing for %%d. Run: cd %ROOT_DIR%\%%d && npm install"
+        call :print_result 1 "Dependencies missing for %%d. Run: cd "%ROOT_DIR%\%%d" && npm install"
     )
 )
 
@@ -261,10 +238,17 @@ if %ERROR_COUNT%==0 (
 echo.
 echo Next Steps:
 echo 1. Fix any errors reported above.
-echo 2. Run: cd %ROOT_DIR% && launch-dashboard.bat
+echo 2. Run: cd "%ROOT_DIR%" && launch-dashboard.bat
 echo 3. Access dashboard at: file:///%ROOT_DIR%/dashboard/index.html
 echo 4. View metrics at: http://localhost:3001 (Grafana)
-echo 5. Stop services: cd %CONFIGS_DIR% && docker-compose down
+echo 5. Stop services: cd "%CONFIGS_DIR%" && docker-compose down
 
 pause
 endlocal
+color 0A
+title Multi-Agent Application Setup Verification
+set PATH=%PATH%;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\ffmpeg\bin;C:\Program Files\Git\bin;C:\Windows\System32;C:\Users\sgins\miniconda3\Scripts; & python.exe -m pip install --upgrade pip
+cd /d "%~dp0" & set PATH=%PATH%;C:\Windows\System32\WindowsPowerShell\v1.0
+cls
+
+
