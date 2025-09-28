@@ -1,0 +1,9 @@
+{
+  "name": "analyzer",
+  "version": "1.0.0",
+  "main": "analyzer.js",
+  "dependencies": {
+    "@langchain/openai": "^0.2.0",
+    "dotenv": "^16.0.3"
+  }
+}
