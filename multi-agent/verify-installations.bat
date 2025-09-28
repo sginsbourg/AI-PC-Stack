@@ -11,7 +11,7 @@ goto :main
 
 :main
 :: Set variables
-set "ROOT_DIR=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\multi-agent-app"
+set "ROOT_DIR=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\multi-agent"
 set "AI_STACK_DIR=C:\Users\sgins\AI_STACK"
 set "CONFIGS_DIR=%ROOT_DIR%\configs"
 set "ERROR_COUNT=0"
@@ -146,6 +146,26 @@ if %ERRORLEVEL%==0 (
     call :print_result 1 "Python markdown package not found. Install with: pip install markdown"
 )
 
+:: Check gradio
+echo DEBUG: Checking Python gradio package...
+pip show gradio >nul 2>&1
+if %ERRORLEVEL%==0 (
+    set "GRADIO_VERSION="
+    for /f "tokens=2 delims=:" %%i in ('pip show gradio ^| findstr /C:"Version" 2^>nul') do set "GRADIO_VERSION=%%i"
+    if defined GRADIO_VERSION (
+        call :print_result 0 "Python gradio package installed (version:!GRADIO_VERSION!)"
+        :: Check for gradio version < 5.0.0
+        for /f "tokens=1 delims=." %%i in ("!GRADIO_VERSION!") do set "GRADIO_MAJOR=%%i"
+        if !GRADIO_MAJOR! GEQ 5 (
+            call :print_result 1 "Gradio version !GRADIO_VERSION! may be incompatible. Try: pip install gradio==4.0.0"
+        )
+    ) else (
+        call :print_result 1 "Python gradio package version check failed. Ensure pip and gradio are installed."
+    )
+) else (
+    call :print_result 1 "Python gradio package not found. Install with: pip install gradio==4.0.0"
+)
+
 :: Check Java (JDK for JMeter)
 echo DEBUG: Checking Java (JDK)...
 where java >nul 2>&1
@@ -236,6 +256,36 @@ for %%f in (%FILES%) do (
     ) else (
         call :print_result 1 "File missing: %%f"
     )
+)
+
+:: Check docker-compose.yml content
+echo DEBUG: Checking docker-compose.yml content...
+if exist "%CONFIGS_DIR%\docker-compose.yml" (
+    for /f %%i in ("%CONFIGS_DIR%\docker-compose.yml") do set "FILESIZE=%%~zi"
+    if !FILESIZE! GTR 0 (
+        call :print_result 0 "docker-compose.yml exists and is non-empty"
+        :: Validate docker-compose.yml syntax and capture error message
+        set "COMPOSE_ERROR="
+        for /f "delims=" %%i in ('docker-compose -f "%CONFIGS_DIR%\docker-compose.yml" config 2^>^&1') do set "COMPOSE_ERROR=%%i"
+        docker-compose -f "%CONFIGS_DIR%\docker-compose.yml" config >nul 2>&1
+        if %ERRORLEVEL%==0 (
+            call :print_result 0 "docker-compose.yml syntax is valid"
+        ) else (
+            call :print_result 1 "docker-compose.yml has invalid syntax: !COMPOSE_ERROR!. Check YAML format and ensure no tabs or invalid characters."
+        )
+    ) else (
+        call :print_result 1 "docker-compose.yml is empty. Populate with service definitions from setup guide."
+    )
+) else (
+    call :print_result 1 "docker-compose.yml not found in %CONFIGS_DIR%"
+)
+
+:: Check for conflicting docker-compose.yaml
+echo DEBUG: Checking for conflicting docker-compose.yaml...
+if exist "%CONFIGS_DIR%\docker-compose.yaml" (
+    call :print_result 1 "Conflicting docker-compose.yaml found. Rename or remove: %CONFIGS_DIR%\docker-compose.yaml"
+) else (
+    call :print_result 0 "No conflicting docker-compose.yaml found"
 )
 
 echo.

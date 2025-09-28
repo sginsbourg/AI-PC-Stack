@@ -1,0 +1,90 @@
+```yaml
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: ../orchestrator
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - LOCAL_LLM_URL=http://host.docker.internal:5000/v1
+    depends_on:
+      - tg-webui
+    volumes:
+      - ../orchestrator:/app
+    networks:
+      - multi-agent-net
+
+  generator:
+    build:
+      context: ../generator
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ../generator:/app
+    networks:
+      - multi-agent-net
+
+  runner:
+    build:
+      context: ../runner
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ../runner:/app
+    networks:
+      - multi-agent-net
+
+  analyzer:
+    build:
+      context: ../analyzer
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ../analyzer:/app
+    networks:
+      - multi-agent-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - multi-agent-net
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - multi-agent-net
+
+  tg-webui:
+    image: python:3.10
+    command: python /app/server.py --model deepseek-ai_DeepSeek-V3.1 --api
+    ports:
+      - "5000:5000"
+    volumes:
+      - C:/Users/sgins/AI_STACK/tg-webui:/app
+    networks:
+      - multi-agent-net
+
+networks:
+  multi-agent-net:
+    driver: bridge
+
+volumes:
+  grafana-storage:
+```
