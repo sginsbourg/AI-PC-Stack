@@ -11,7 +11,7 @@ goto :main
 
 :main
 :: Set variables
-set "ROOT_DIR=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\multi-agent"
+set "ROOT_DIR=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\multi-agent-app"
 set "AI_STACK_DIR=C:\Users\sgins\AI_STACK"
 set "CONFIGS_DIR=%ROOT_DIR%\configs"
 set "ERROR_COUNT=0"
@@ -72,6 +72,13 @@ if %ERRORLEVEL%==0 (
     for /f "delims=" %%i in ('docker --version 2^>nul') do set "DOCKER_VERSION=%%i"
     if defined DOCKER_VERSION (
         call :print_result 0 "Docker installed (version: !DOCKER_VERSION!)"
+        echo DEBUG: Checking if Docker is running...
+        docker info >nul 2>&1
+        if %ERRORLEVEL%==0 (
+            call :print_result 0 "Docker is running"
+        ) else (
+            call :print_result 1 "Docker is not running. Start Docker Desktop."
+        )
     ) else (
         call :print_result 1 "Docker version check failed. Ensure docker is in PATH."
     )
@@ -122,6 +129,21 @@ if %ERRORLEVEL%==0 (
     )
 ) else (
     call :print_result 1 "Locust not found. Install with: pip install locust"
+)
+
+:: Check markdown
+echo DEBUG: Checking Python markdown package...
+pip show markdown >nul 2>&1
+if %ERRORLEVEL%==0 (
+    set "MARKDOWN_VERSION="
+    for /f "tokens=2 delims=:" %%i in ('pip show markdown ^| findstr /C:"Version" 2^>nul') do set "MARKDOWN_VERSION=%%i"
+    if defined MARKDOWN_VERSION (
+        call :print_result 0 "Python markdown package installed (version:!MARKDOWN_VERSION!)"
+    ) else (
+        call :print_result 1 "Python markdown package version check failed. Ensure pip and markdown are installed."
+    )
+) else (
+    call :print_result 1 "Python markdown package not found. Install with: pip install markdown"
 )
 
 :: Check Java (JDK for JMeter)
