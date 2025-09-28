@@ -1,9 +1,13 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+color 0A
+title Multi-Agent Application Setup Verification
+cls
+
 :: Set variables
-set "ROOT_DIR=C:\multi-agent-app"
-set "AI_STACK_DIR=C:\Users\sgins\AI_STACK\tg-webui"
+set "ROOT_DIR=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\multi-agent-app"
+set "AI_STACK_DIR=C:\Users\sgins\AI_STACK"
 set "CONFIGS_DIR=%ROOT_DIR%\configs"
 set "ERROR_COUNT=0"
 set "CHECK_COUNT=0"
