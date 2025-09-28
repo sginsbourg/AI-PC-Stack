@@ -2,44 +2,40 @@
 setlocal EnableDelayedExpansion
 
 color 0A
-title Multi-Agent Application Setup Verification
+title Multi-Agent Application Installation Verification
 set PATH=%PATH%;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\ffmpeg\bin;C:\Program Files\Git\bin;C:\Windows\System32;C:\Users\sgins\miniconda3\Scripts; & python.exe -m pip install --upgrade pip
 cd /d "%~dp0" & set PATH=%PATH%;C:\Windows\System32\WindowsPowerShell\v1.0
 cls
 
+goto :main
+
+:main
 :: Set variables
-set "ROOT_DIR=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\multi-agent-app"
+set "ROOT_DIR=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\multi-agent"
 set "AI_STACK_DIR=C:\Users\sgins\AI_STACK"
 set "CONFIGS_DIR=%ROOT_DIR%\configs"
 set "ERROR_COUNT=0"
 set "CHECK_COUNT=0"
 
+echo DEBUG: Initializing script...
 echo ==================================================
-echo Multi-Agent Application Setup Verification Script
+echo Multi-Agent Application Installation Verification Script
 echo Date: %DATE% %TIME%
 echo Root Directory: %ROOT_DIR%
 echo AI Stack Directory: %AI_STACK_DIR%
 echo ==================================================
 echo.
 
-:: Function to print check result
-:print_result
-set /a CHECK_COUNT+=1
-if %1==0 (
-    echo [OK] %2
-) else (
-    echo [ERROR] %2
-    set /a ERROR_COUNT+=1
-)
-goto :eof
+echo DEBUG: Starting software installation checks...
+echo.
 
-:: === 1. Check Software Prerequisites ===
+:: === 1. Check Software Installations ===
 
-echo Checking Software Prerequisites...
+echo Checking Software Installations...
 echo.
 
 :: Check Node.js
-echo Checking Node.js...
+echo DEBUG: Checking Node.js...
 where node >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "NODE_VERSION="
@@ -54,7 +50,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check npm
-echo Checking npm...
+echo DEBUG: Checking npm...
 where npm >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "NPM_VERSION="
@@ -69,7 +65,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check Docker
-echo Checking Docker...
+echo DEBUG: Checking Docker...
 where docker >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "DOCKER_VERSION="
@@ -84,7 +80,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check Docker Compose
-echo Checking Docker Compose...
+echo DEBUG: Checking Docker Compose...
 where docker-compose >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "DC_VERSION="
@@ -99,7 +95,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check Python
-echo Checking Python...
+echo DEBUG: Checking Python...
 where python >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "PYTHON_VERSION="
@@ -114,7 +110,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check Locust
-echo Checking Locust...
+echo DEBUG: Checking Locust...
 pip show locust >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "LOCUST_VERSION="
@@ -129,7 +125,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check Java (JDK for JMeter)
-echo Checking Java (JDK)...
+echo DEBUG: Checking Java (JDK)...
 where java >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "JAVA_VERSION="
@@ -144,7 +140,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check JMeter
-echo Checking JMeter...
+echo DEBUG: Checking JMeter...
 where jmeter >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "JMETER_VERSION="
@@ -159,7 +155,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check k6
-echo Checking k6...
+echo DEBUG: Checking k6...
 where k6 >nul 2>&1
 if %ERRORLEVEL%==0 (
     set "K6_VERSION="
@@ -174,7 +170,7 @@ if %ERRORLEVEL%==0 (
 )
 
 :: Check tg-webui directory
-echo Checking AI_STACK (tg-webui)...
+echo DEBUG: Checking AI_STACK (tg-webui)...
 if exist "%AI_STACK_DIR%\server.py" (
     call :print_result 0 "tg-webui found at %AI_STACK_DIR%"
 ) else (
@@ -182,7 +178,7 @@ if exist "%AI_STACK_DIR%\server.py" (
 )
 
 :: Check if tg-webui is running
-echo Checking tg-webui server...
+echo DEBUG: Checking tg-webui server...
 netstat -an | find "5000" >nul
 if %ERRORLEVEL%==0 (
     call :print_result 0 "tg-webui server running on port 5000"
@@ -199,6 +195,9 @@ if %ERRORLEVEL%==0 (
 )
 
 echo.
+echo DEBUG: Starting source file checks...
+echo.
+
 :: === 2. Check Source Files ===
 
 echo Checking Source Files in %ROOT_DIR%...
@@ -209,6 +208,7 @@ set "FILES=dashboard\index.html orchestrator\orchestrator.js orchestrator\packag
 
 :: Check each file
 for %%f in (%FILES%) do (
+    echo DEBUG: Checking file %%f...
     if exist "%ROOT_DIR%\%%f" (
         call :print_result 0 "File exists: %%f"
     ) else (
@@ -216,11 +216,19 @@ for %%f in (%FILES%) do (
     )
 )
 
+echo.
+echo DEBUG: Starting directory structure checks...
+echo.
+
+:: === 3. Check Directory Structure ===
+
+echo Checking Directory Structure...
+echo.
+
 :: Check directory structure
 set "DIRS=dashboard orchestrator generator runner analyzer configs scripts results results\k6 results\locust results\jmeter"
-echo.
-echo Checking Directory Structure...
 for %%d in (%DIRS%) do (
+    echo DEBUG: Checking directory %%d...
     if exist "%ROOT_DIR%\%%d" (
         call :print_result 0 "Directory exists: %%d"
     ) else (
@@ -229,19 +237,24 @@ for %%d in (%DIRS%) do (
 )
 
 echo.
-:: === 3. Check Environment Variables ===
+echo DEBUG: Starting environment configuration checks...
+echo.
+
+:: === 4. Check Environment Variables ===
 
 echo Checking Environment Configuration...
 echo.
 
 :: Check .env file content
 if exist "%CONFIGS_DIR%\.env" (
+    echo DEBUG: Checking .env for LOCAL_LLM_URL...
     findstr /C:"LOCAL_LLM_URL" "%CONFIGS_DIR%\.env" >nul
     if %ERRORLEVEL%==0 (
         call :print_result 0 ".env file contains LOCAL_LLM_URL"
     ) else (
         call :print_result 1 ".env file missing LOCAL_LLM_URL. Add: LOCAL_LLM_URL=http://localhost:5000/v1"
     )
+    echo DEBUG: Checking .env for PORT...
     findstr /C:"PORT" "%CONFIGS_DIR%\.env" >nul
     if %ERRORLEVEL%==0 (
         call :print_result 0 ".env file contains PORT"
@@ -253,8 +266,9 @@ if exist "%CONFIGS_DIR%\.env" (
 )
 
 :: Check Node.js dependencies
-echo Checking Node.js dependencies...
+echo DEBUG: Checking Node.js dependencies...
 for %%d in (orchestrator generator runner analyzer) do (
+    echo DEBUG: Checking dependencies for %%d...
     if exist "%ROOT_DIR%\%%d\node_modules" (
         call :print_result 0 "Dependencies installed for %%d"
     ) else (
@@ -263,7 +277,10 @@ for %%d in (orchestrator generator runner analyzer) do (
 )
 
 echo.
-:: === 4. Summary ===
+echo DEBUG: Generating summary...
+echo.
+
+:: === 5. Summary ===
 
 echo ==================================================
 echo Verification Summary
@@ -273,7 +290,7 @@ echo ==================================================
 echo.
 
 if %ERROR_COUNT%==0 (
-    echo All prerequisites and files verified successfully!
+    echo All installations and files verified successfully!
     echo You can now run the application using launch-dashboard.bat.
 ) else (
     echo %ERROR_COUNT% errors found. Please address the issues listed above.
@@ -290,4 +307,22 @@ echo 4. View metrics at: http://localhost:3001 (Grafana)
 echo 5. Stop services: cd "%CONFIGS_DIR%" && docker-compose down
 
 pause
-endlocal
+goto :eof
+
+:: Function to print check result
+:print_result
+echo DEBUG: print_result called with status=%1 message=%2
+if "%1"=="" (
+    echo [ERROR] Invalid call to print_result: No status provided
+    set /a ERROR_COUNT+=1
+    set /a CHECK_COUNT+=1
+    goto :eof
+)
+if "%1"=="0" (
+    echo [OK] %2
+) else (
+    echo [ERROR] %2
+    set /a ERROR_COUNT+=1
+)
+set /a CHECK_COUNT+=1
+goto :eof
