@@ -18,6 +18,7 @@ echo ==================================================
 echo Multi-Agent Application Setup Verification Script
 echo Date: %DATE% %TIME%
 echo Root Directory: %ROOT_DIR%
+echo AI Stack Directory: %AI_STACK_DIR%
 echo ==================================================
 echo.
 
@@ -41,8 +42,13 @@ echo.
 echo Checking Node.js...
 where node >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('node --version') do set "NODE_VERSION=%%i"
-    call :print_result 0 "Node.js installed (version: !NODE_VERSION!)"
+    set "NODE_VERSION="
+    for /f "delims=" %%i in ('node --version 2^>nul') do set "NODE_VERSION=%%i"
+    if defined NODE_VERSION (
+        call :print_result 0 "Node.js installed (version: !NODE_VERSION!)"
+    ) else (
+        call :print_result 1 "Node.js version check failed. Ensure node is in PATH."
+    )
 ) else (
     call :print_result 1 "Node.js not found. Install from https://nodejs.org/"
 )
@@ -51,8 +57,13 @@ if %ERRORLEVEL%==0 (
 echo Checking npm...
 where npm >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('npm --version') do set "NPM_VERSION=%%i"
-    call :print_result 0 "npm installed (version: !NPM_VERSION!)"
+    set "NPM_VERSION="
+    for /f "delims=" %%i in ('npm --version 2^>nul') do set "NPM_VERSION=%%i"
+    if defined NPM_VERSION (
+        call :print_result 0 "npm installed (version: !NPM_VERSION!)"
+    ) else (
+        call :print_result 1 "npm version check failed. Ensure npm is in PATH."
+    )
 ) else (
     call :print_result 1 "npm not found. Install with Node.js from https://nodejs.org/"
 )
@@ -61,8 +72,13 @@ if %ERRORLEVEL%==0 (
 echo Checking Docker...
 where docker >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('docker --version') do set "DOCKER_VERSION=%%i"
-    call :print_result 0 "Docker installed (version: !DOCKER_VERSION!)"
+    set "DOCKER_VERSION="
+    for /f "delims=" %%i in ('docker --version 2^>nul') do set "DOCKER_VERSION=%%i"
+    if defined DOCKER_VERSION (
+        call :print_result 0 "Docker installed (version: !DOCKER_VERSION!)"
+    ) else (
+        call :print_result 1 "Docker version check failed. Ensure docker is in PATH."
+    )
 ) else (
     call :print_result 1 "Docker not found. Install Docker Desktop from https://www.docker.com/products/docker-desktop/"
 )
@@ -71,8 +87,13 @@ if %ERRORLEVEL%==0 (
 echo Checking Docker Compose...
 where docker-compose >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('docker-compose --version') do set "DC_VERSION=%%i"
-    call :print_result 0 "Docker Compose installed (version: !DC_VERSION!)"
+    set "DC_VERSION="
+    for /f "delims=" %%i in ('docker-compose --version 2^>nul') do set "DC_VERSION=%%i"
+    if defined DC_VERSION (
+        call :print_result 0 "Docker Compose installed (version: !DC_VERSION!)"
+    ) else (
+        call :print_result 1 "Docker Compose version check failed. Ensure docker-compose is in PATH."
+    )
 ) else (
     call :print_result 1 "Docker Compose not found. Ensure Docker Desktop is installed."
 )
@@ -81,8 +102,13 @@ if %ERRORLEVEL%==0 (
 echo Checking Python...
 where python >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('python --version') do set "PYTHON_VERSION=%%i"
-    call :print_result 0 "Python installed (version: !PYTHON_VERSION!)"
+    set "PYTHON_VERSION="
+    for /f "delims=" %%i in ('python --version 2^>nul') do set "PYTHON_VERSION=%%i"
+    if defined PYTHON_VERSION (
+        call :print_result 0 "Python installed (version: !PYTHON_VERSION!)"
+    ) else (
+        call :print_result 1 "Python version check failed. Ensure python is in PATH."
+    )
 ) else (
     call :print_result 1 "Python not found. Install from https://www.python.org/downloads/"
 )
@@ -91,8 +117,13 @@ if %ERRORLEVEL%==0 (
 echo Checking Locust...
 pip show locust >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=2 delims=:" %%i in ('pip show locust ^| findstr /C:"Version"') do set "LOCUST_VERSION=%%i"
-    call :print_result 0 "Locust installed (version:!LOCUST_VERSION!)"
+    set "LOCUST_VERSION="
+    for /f "tokens=2 delims=:" %%i in ('pip show locust ^| findstr /C:"Version" 2^>nul') do set "LOCUST_VERSION=%%i"
+    if defined LOCUST_VERSION (
+        call :print_result 0 "Locust installed (version:!LOCUST_VERSION!)"
+    ) else (
+        call :print_result 1 "Locust version check failed. Ensure pip and locust are installed."
+    )
 ) else (
     call :print_result 1 "Locust not found. Install with: pip install locust"
 )
@@ -101,8 +132,13 @@ if %ERRORLEVEL%==0 (
 echo Checking Java (JDK)...
 where java >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "tokens=3" %%i in ('java -version 2^>^&1 ^| findstr /C:"version"') do set "JAVA_VERSION=%%i"
-    call :print_result 0 "Java installed (version: !JAVA_VERSION!)"
+    set "JAVA_VERSION="
+    for /f "tokens=3" %%i in ('java -version 2^>^&1 ^| findstr /C:"version" 2^>nul') do set "JAVA_VERSION=%%i"
+    if defined JAVA_VERSION (
+        call :print_result 0 "Java installed (version: !JAVA_VERSION!)"
+    ) else (
+        call :print_result 1 "Java version check failed. Ensure java is in PATH."
+    )
 ) else (
     call :print_result 1 "Java not found. Install JDK 17+ from https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html"
 )
@@ -111,8 +147,13 @@ if %ERRORLEVEL%==0 (
 echo Checking JMeter...
 where jmeter >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('jmeter --version ^| findstr /C:"JMeter"') do set "JMETER_VERSION=%%i"
-    call :print_result 0 "JMeter installed (version: !JMETER_VERSION!)"
+    set "JMETER_VERSION="
+    for /f "delims=" %%i in ('jmeter --version ^| findstr /C:"JMeter" 2^>nul') do set "JMETER_VERSION=%%i"
+    if defined JMETER_VERSION (
+        call :print_result 0 "JMeter installed (version: !JMETER_VERSION!)"
+    ) else (
+        call :print_result 1 "JMeter version check failed. Ensure jmeter is in PATH."
+    )
 ) else (
     call :print_result 1 "JMeter not found. Install from https://jmeter.apache.org/download_jmeter.cgi"
 )
@@ -121,8 +162,13 @@ if %ERRORLEVEL%==0 (
 echo Checking k6...
 where k6 >nul 2>&1
 if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('k6 version') do set "K6_VERSION=%%i"
-    call :print_result 0 "k6 installed (version: !K6_VERSION!)"
+    set "K6_VERSION="
+    for /f "delims=" %%i in ('k6 version 2^>nul') do set "K6_VERSION=%%i"
+    if defined K6_VERSION (
+        call :print_result 0 "k6 installed (version: !K6_VERSION!)"
+    ) else (
+        call :print_result 1 "k6 version check failed. Ensure k6 is in PATH."
+    )
 ) else (
     call :print_result 1 "k6 not found. Install from https://k6.io/docs/getting-started/installation/"
 )
@@ -245,10 +291,3 @@ echo 5. Stop services: cd "%CONFIGS_DIR%" && docker-compose down
 
 pause
 endlocal
-color 0A
-title Multi-Agent Application Setup Verification
-set PATH=%PATH%;C:\Users\sgins\Python312;C:\Users\sgins\Python312\Scripts;C:\ffmpeg\bin;C:\Program Files\Git\bin;C:\Windows\System32;C:\Users\sgins\miniconda3\Scripts; & python.exe -m pip install --upgrade pip
-cd /d "%~dp0" & set PATH=%PATH%;C:\Windows\System32\WindowsPowerShell\v1.0
-cls
-
-
