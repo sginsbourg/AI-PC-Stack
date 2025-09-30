@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Markdown Editor – Five Essentials</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{ --accent:#0066ff; --bg:#f7f7f7; --side:#ffffff; --toolbar:#fafafa; }
+*{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+body{margin:0;display:flex;height:100vh;background:var(--bg);}
+header{position:fixed;top:0;left:0;right:0;height:48px;background:var(--side);border-bottom:1px solid #ddd;
+       display:flex;align-items:center;padding:0 12px;z-index:10;gap:8px;}
+main{margin-top:48px;flex:1;display:flex;height:calc(100vh - 48px);}
+#editor,#preview{flex:1;padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;}
+#editor{border-right:1px solid #ddd;background:#fff;font-family:"SF Mono",Consolas,monospace;font-size:14px;}
+#preview{background:var(--side);}
+button,select{padding:6px 10px;border:1px solid #bbb;background:#fff;border-radius:4px;cursor:pointer;}
+button:hover,select:hover{border-color:var(--accent);}
+#fileInput{display:none;}
+#toolbar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--toolbar);
+         border:1px solid #ddd;border-radius:6px;padding:4px;display:flex;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,.1);}
+#toolbar button{font-size:18px;padding:4px 8px;}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <button id="openBtn">Open</button>
+  <input id="fileInput" type="file" accept=".md,.markdown">
+  <button id="saveBtn">Save</button>
+  <button id="saveAsBtn">Save as</button>
+  <button id="previewToggle">Preview ▶</button>
+  <span style="margin-left:auto;font-size:13px;color:#555">Markdown Editor</span>
+</header>
+
+<main>
+  <textarea id="editor" placeholder="Start typing…"></textarea>
+  <div id="preview" class="hidden"></div>
+</main>
+
+<div id="toolbar">
+  <button title="Bold (Ctrl-B)" data-md="**">B</button>
+  <button title="Italic (Ctrl-I)" data-md="_">I</button>
+  <button title="Code (Ctrl-K)" data-md="`">C</button>
+  <button title="Link (Ctrl-L)" data-md="[](url)">🔗</button>
+  <button title="List (Ctrl-U)" data-md="- ">L</button>
+  <button title="Quote (Ctrl-Q)" data-md="> ">Q</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+/* ==========  state  ========== */
+let currentFileName = 'untitled.md';
+let previewVisible = false;
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+
+/* ==========  1. Live preview toggle  ========== */
+document.getElementById('previewToggle').onclick = () => {
+  previewVisible = !previewVisible;
+  preview.classList.toggle('hidden', !previewVisible);
+  render();
+};
+
+function render() {
+  if (previewVisible) preview.innerHTML = marked.parse(editor.value);
+}
+editor.addEventListener('input', render);
+
+/* ==========  2. File I/O  ========== */
+const fileInput = document.getElementById('fileInput');
+document.getElementById('openBtn').onclick = () => fileInput.click();
+fileInput.onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { editor.value = r.result; currentFileName = f.name; pushHistory(); render(); };
+  r.readAsText(f);
+};
+
+function download(name, content) {
+  const blob = new Blob([content], {type:'text/markdown'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+document.getElementById('saveBtn').onclick = () => download(currentFileName, editor.value);
+document.getElementById('saveAsBtn').onclick = () => {
+  const name = prompt('Save as:', currentFileName);
+  if (!name) return;
+  currentFileName = name.endsWith('.md') || name.endsWith('.markdown') ? name : name + '.md';
+  download(currentFileName, editor.value);
+};
+
+/* ==========  3. Undo / Redo stack  ========== */
+const history = []; let histPos = -1;
+function pushHistory() {
+  history.splice(histPos + 1);        // truncate future
+  history.push(editor.value);
+  histPos = history.length - 1;
+}
+function undo() { if (histPos > 0) { histPos--; editor.value = history[histPos]; render(); } }
+function redo() { if (histPos < history.length - 1) { histPos++; editor.value = history[histPos]; render(); } }
+editor.addEventListener('input', pushHistory);
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    if (e.key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
+    if (e.key === 'y') { e.preventDefault(); redo(); }
+  }
+});
+pushHistory(); // seed
+
+/* ==========  4. Toolbar & hotkeys  ========== */
+document.getElementById('toolbar').onclick = e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  const md = e.target.dataset.md;
+  wrapInsert(md);
+};
+function wrapInsert(mark) {
+  const s = editor.selectionStart, e = editor.selectionEnd;
+  const selected = editor.value.slice(s, e);
+  let before, after;
+  if (mark === '**' || mark === '_' || mark === '`') {
+    before = after = mark;
+  } else if (mark === '[](url)') {
+    before = '['; after = '](url)';
+  } else { // list or quote
+    before = mark; after = '';
+  }
+  const replacement = before + selected + after;
+  editor.setRangeText(replacement, s, e, 'end');
+  editor.focus();
+  pushHistory(); render();
+}
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey) {
+    let cmd = null;
+    if (e.key === 'b') cmd = '**';
+    if (e.key === 'i') cmd = '_';
+    if (e.key === 'k') cmd = '`';
+    if (e.key === 'l') cmd = '[](url)';
+    if (e.key === 'u') cmd = '- ';
+    if (e.key === 'q') cmd = '> ';
+    if (cmd) { e.preventDefault(); wrapInsert(cmd); }
+  }
+});
+
+/* ==========  5. Auto-save & restore  ========== */
+const LS_KEY = 'mdEditor_autosave';
+setInterval(() => localStorage.setItem(LS_KEY, editor.value), 2000);
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved) { editor.value = saved; pushHistory(); render(); }
+});
+window.addEventListener('beforeunload', () => localStorage.setItem(LS_KEY, editor.value));
+</script>
+</body>
+</html>
