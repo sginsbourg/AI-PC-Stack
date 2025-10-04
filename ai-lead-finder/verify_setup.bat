@@ -16,74 +16,63 @@ set "TOTAL_FILES=0"
 set "MISSING_FILES=0"
 set "EMPTY_FILES=0"
 
-:: Define file list in a more reliable way
-set FILE_LIST[0]=docker-compose.yml
-set FILE_LIST[1]=README.md
-set FILE_LIST[2]=setup.bat
-set FILE_LIST[3]=run.bat
-set FILE_LIST[4]=check_services.bat
-set FILE_LIST[5]=stop_services.bat
-set FILE_LIST[6]=create_nutch_config.bat
-set FILE_LIST[7]=main_enhanced.py
-set FILE_LIST[8]=scripts\crawl.bat
-set FILE_LIST[9]=scripts\init_models.bat
-set FILE_LIST[10]=open-manus\Dockerfile
-set FILE_LIST[11]=open-manus\requirements.txt
-set FILE_LIST[12]=open-manus\app.py
-set FILE_LIST[13]=lead-analyzer\Dockerfile
-set FILE_LIST[14]=lead-analyzer\requirements.txt
-set FILE_LIST[15]=lead-analyzer\analyzer.py
-
-:: Define directory list
-set DIR_LIST[0]=nutch_data
-set DIR_LIST[1]=nutch_data\urls
-set DIR_LIST[2]=nutch_data\conf
-set DIR_LIST[3]=results
-set DIR_LIST[4]=scripts
-set DIR_LIST[5]=models
-set DIR_LIST[6]=open-manus
-set DIR_LIST[7]=lead-analyzer
-
 echo 📁 Checking required files...
 echo.
 
-:: Check all files
-for /l %%i in (0,1,15) do (
-    set "FILE=!FILE_LIST[%%i]!"
-    if "!FILE!"=="" (
-        echo ⚠️  Skipping empty file entry at index %%i
-    ) else (
-        set /a TOTAL_FILES+=1
-        if not exist "!FILE!" (
-            echo ❌ MISSING: !FILE!
-            set "ALL_FILES_EXIST=0"
-            set /a MISSING_FILES+=1
-        ) else (
-            for %%F in ("!FILE!") do set "SIZE=%%~zF"
-            if !SIZE! equ 0 (
-                echo ⚠️  EMPTY: !FILE! (0 bytes)
-                set "ALL_FILES_NON_EMPTY=0"
-                set /a EMPTY_FILES+=1
-            ) else (
-                echo ✅ OK: !FILE! (!SIZE! bytes)
-            )
-        )
-    )
-)
+:: Check files using a simpler approach
+call :CheckFile "docker-compose.yml" "Docker Compose Configuration"
+call :CheckFile "README.md" "Documentation"
+call :CheckFile "setup.bat" "Main Setup Script"
+call :CheckFile "run.bat" "Main Execution Script"
+call :CheckFile "check_services.bat" "Service Check Script"
+call :CheckFile "stop_services.bat" "Service Stop Script"
+call :CheckFile "create_nutch_config.bat" "Nutch Configuration Script"
+call :CheckFile "main_enhanced.py" "Main Python Application"
+
+echo.
+echo 📁 Checking script files...
+echo.
+
+call :CheckFile "scripts\crawl.bat" "Nutch Crawl Script"
+call :CheckFile "scripts\init_models.bat" "AI Model Initialization Script"
+
+echo.
+echo 📁 Checking Open Manus AI files...
+echo.
+
+call :CheckFile "open-manus\Dockerfile" "Open Manus Dockerfile"
+call :CheckFile "open-manus\requirements.txt" "Open Manus Python Requirements"
+call :CheckFile "open-manus\app.py" "Open Manus AI Application"
+
+echo.
+echo 📁 Checking Lead Analyzer files...
+echo.
+
+call :CheckFile "lead-analyzer\Dockerfile" "Lead Analyzer Dockerfile"
+call :CheckFile "lead-analyzer\requirements.txt" "Lead Analyzer Python Requirements"
+call :CheckFile "lead-analyzer\analyzer.py" "Lead Analyzer Application"
 
 echo.
 echo 📁 Checking directory structure...
 echo.
 
-:: Check all directories
-for /l %%i in (0,1,7) do (
-    set "DIR=!DIR_LIST[%%i]!"
-    if not exist "!DIR!\" (
-        echo ❌ MISSING: !DIR!\ directory
+:: Check directories
+for %%D in (
+    nutch_data
+    nutch_data\urls
+    nutch_data\conf
+    results
+    scripts
+    models
+    open-manus
+    lead-analyzer
+) do (
+    if not exist "%%D\" (
+        echo ❌ MISSING: %%D\ directory
         set "ALL_FILES_EXIST=0"
         set /a MISSING_FILES+=1
     ) else (
-        echo ✅ OK: !DIR!\ directory exists
+        echo ✅ OK: %%D\ directory exists
     )
 )
 
@@ -114,15 +103,36 @@ if !ALL_FILES_EXIST! equ 1 if !ALL_FILES_NON_EMPTY! equ 1 (
     echo 🎉 Setup verification PASSED!
     echo.
     echo 🚀 You can now run 'setup.bat' to start the system.
-) else if !MISSING_FILES! gtr 0 (
-    echo.
-    echo 🔧 Run 'create_missing_files.bat' to create missing files
 ) else (
     echo ❌ Setup verification FAILED!
     echo.
-    echo 💡 Please ensure all files are downloaded correctly.
-    echo 💡 Re-download the package if files are missing.
+    echo 🔧 Run 'create_missing_files.bat' to create missing files
 )
 
 echo.
 pause
+goto :EOF
+
+:CheckFile
+set "FILE=%~1"
+set "DESCRIPTION=%~2"
+set /a TOTAL_FILES+=1
+
+if not exist "!FILE!" (
+    echo ❌ MISSING: !DESCRIPTION!
+    echo    File: !FILE!
+    set "ALL_FILES_EXIST=0"
+    set /a MISSING_FILES+=1
+    goto :EOF
+)
+
+for %%F in ("!FILE!") do set "SIZE=%%~zF"
+if !SIZE! equ 0 (
+    echo ⚠️  EMPTY: !DESCRIPTION!
+    echo    File: !FILE! (0 bytes)
+    set "ALL_FILES_NON_EMPTY=0"
+    set /a EMPTY_FILES+=1
+) else (
+    echo ✅ OK: !DESCRIPTION! (!SIZE! bytes)
+)
+goto :EOF

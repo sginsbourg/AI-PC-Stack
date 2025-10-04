@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
-setlocal enabledelayedexpansion
+
+cd /d "%~dp0" & cls & color 0A
 
 echo.
 echo ========================================
@@ -8,41 +9,43 @@ echo   AI-Powered Lead Finder
 echo ========================================
 echo.
 
-:: Check if Docker is running
+echo Step 1: Checking Docker...
 docker version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ❌ Docker is not running. Please start Docker Desktop first.
+if not %errorlevel% == 0 (
+    echo ERROR: Docker is not running. Please start Docker Desktop first.
     pause
     exit /b 1
 )
+echo ✅ Docker is running
 
-:: Check if services are running
-echo 🔍 Checking services...
+echo.
+echo Step 2: Checking services...
 docker ps | findstr "nutch-crawler" >nul
-if %errorlevel% neq 0 (
-    echo ❌ Services are not running. Please run setup.bat first.
+if not %errorlevel% == 0 (
+    echo ERROR: Services are not running. Please run setup.bat first.
     pause
     exit /b 1
 )
+echo ✅ Services are running
 
-:: Run the main Python script
-echo 🚀 Starting AI-Powered Lead Finder...
+echo.
+echo Step 3: Starting AI-Powered Lead Finder...
 echo ✅ Confirmed: All AI models running locally - No API keys needed!
 echo.
 
 python main_enhanced.py
 
-if %errorlevel% neq 0 (
+if not %errorlevel% == 0 (
     echo.
-    echo ❌ Python script failed. Please check if Python is installed.
-    echo 💡 Required: Python 3.8 or higher
+    echo ERROR: Python script failed. Please check if Python is installed.
+    echo TIP: Required: Python 3.8 or higher
     pause
     exit /b 1
 )
 
 echo.
 echo ========================================
-echo 🎉 Lead generation completed!
+echo ✅ Lead generation completed!
 echo ========================================
 echo.
 echo 📁 Check the 'results' folder for:

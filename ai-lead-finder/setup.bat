@@ -1,79 +1,52 @@
 @echo off
 chcp 65001 >nul
-setlocal enabledelayedexpansion
+
+cd /d "%~dp0" & cls & color 0A
 
 echo.
 echo ========================================
 echo   AI-Powered Lead Finder Setup
 echo ========================================
 echo.
-echo ✅ Confirmed: All services will run locally
-echo ✅ No API keys required!
-echo.
 
-:: Create necessary directories
-echo 📁 Creating directories...
-if not exist "nutch_data\urls" mkdir nutch_data\urls
-if not exist "nutch_data\conf" mkdir nutch_data\conf
-if not exist "results" mkdir results
-if not exist "scripts" mkdir scripts
-if not exist "models" mkdir models
-if not exist "open-manus" mkdir open-manus
-if not exist "lead-analyzer" mkdir lead-analyzer
+echo Step 1: Creating directories...
+mkdir results 2>nul
+mkdir models 2>nul
+mkdir nutch_data\urls 2>nul
+mkdir nutch_data\conf 2>nul
 
-:: Create Nutch configuration
-echo 📝 Creating Nutch configuration...
-call create_nutch_config.bat
+echo Step 2: Creating seed file...
+(
+echo https://www.g2.com/categories/load-testing
+echo https://www.capterra.com/load-testing-software/
+echo https://www.trustradius.com/load-testing
+echo https://stackoverflow.com/questions/tagged/performance-testing
+echo https://www.reddit.com/r/softwaretesting/
+echo https://aws.amazon.com/blogs/devops/tag/performance-testing/
+echo https://azure.microsoft.com/en-us/blog/tag/performance/
+echo https://github.com/topics/load-testing
+echo https://k6.io/blog/
+echo https://www.gatling.io/blog/
+) > nutch_data\urls\seed.txt
 
-:: Build and start services
-echo 🐳 Building and starting Docker containers...
+echo Step 3: Starting Docker services...
 docker-compose up -d --build
 
-if %errorlevel% neq 0 (
-    echo ❌ Docker compose failed. Please check if Docker is running.
-    pause
-    exit /b 1
-)
-
-:: Wait for services to be ready
-echo ⏳ Waiting for services to initialize...
-timeout /t 60 /nobreak >nul
-
-:: Initialize AI models
-echo 🤖 Initializing AI models...
-echo    This may take 10-30 minutes depending on your internet speed...
-echo    Models will be downloaded: Qwen 7B (~4GB) and DeepSeek Coder 6.7B (~3.7GB)
-echo.
-
-docker exec ollama curl -X POST http://localhost:11434/api/pull -d "{\"name\": \"qwen:7b\"}"
-
-if %errorlevel% neq 0 (
-    echo ❌ Failed to pull Qwen model
-    pause
-    exit /b 1
-)
-
-docker exec ollama curl -X POST http://localhost:11434/api/pull -d "{\"name\": \"deepseek-coder:6.7b\"}"
-
-if %errorlevel% neq 0 (
-    echo ❌ Failed to pull DeepSeek model
+if not %errorlevel% == 0 (
+    echo ERROR: Docker compose failed. Please check if Docker is running.
     pause
     exit /b 1
 )
 
 echo.
-echo ========================================
-echo 🎉 Setup completed successfully!
-echo ========================================
+echo ✅ Setup completed! Services are starting...
 echo.
 echo 📊 Access Points:
 echo    - Kibana Dashboard: http://localhost:5601
 echo    - Open Manus API: http://localhost:8000
 echo    - Ollama: http://localhost:11434
 echo.
-echo 🚀 Run the system: python main_enhanced.py
-echo.
-echo 💡 Remember: All AI models are running locally
-echo 💡 No internet required after setup!
+echo ⏰ AI models will download in the background
+echo 💡 Wait 5-10 minutes then run 'run_fixed.bat'
 echo.
 pause
