@@ -1,0 +1,66 @@
+# Software Review Platforms
+https://www.g2.com/categories/load-testing
+https://www.g2.com/categories/performance-testing
+https://www.capterra.com/load-testing-software/
+https://www.trustradius.com/load-testing
+https://www.getapp.com/performance-management-software/
+
+# Technology Forums & Communities
+https://stackoverflow.com/questions/tagged/performance-testing
+https://www.reddit.com/r/softwaretesting/
+https://www.reddit.com/r/devops/
+https://stackoverflow.com/questions/tagged/load-testing
+https://community.microfocus.com/adtd/en/forum
+
+# Developer & Tech Blogs
+https://www.blazemeter.com/blog/
+https://k6.io/blog/
+https://www.gatling.io/blog/
+https://www.joelonsoftware.com/
+https://martinfowler.com/tags/performance.html
+
+# QA & Testing Communities
+https://www.ministryoftesting.com/community
+https://www.softwaretestinghelp.com/forums/
+https://sqa.stackexchange.com/
+https://www.testingexcellence.com/
+https://www.qaiglobalinstitute.com/community
+
+# Cloud Provider Testing Content
+https://aws.amazon.com/blogs/devops/tag/performance-testing/
+https://azure.microsoft.com/en-us/blog/tag/performance/
+https://cloud.google.com/blog/products/devops-sre
+https://docs.aws.amazon.com/wellarchitected/latest/serverless-applications-lens/performance-testing.html
+
+# Enterprise Tech Discussions
+https://news.ycombinator.com/item?id=38397286
+https://dzone.com/load-testing-tools-tutorials-news
+https://www.infoq.com/performance/
+https://thenewstack.io/category/devops/
+
+# Open Source Testing Tools
+https://github.com/topics/load-testing
+https://github.com/topics/performance-testing
+https://github.com/apache/jmeter
+https://github.com/gatling/gatling
+https://github.com/grafana/k6
+
+# Tech Publications
+https://techbeacon.com/app-dev-testing
+https://www.techtarget.com/searchsoftwarequality/tip/Load-testing-tools-What-to-look-for
+https://www.sdxcentral.com/articles/news/the-best-open-source-load-testing-tools/2023/05/
+https://www.infoworld.com/category/application-development/
+
+# Corporate Tech Blogs
+https://netflixtechblog.com/tagged/performance
+https://engineering.fb.com/category/developer-tools/
+https://blog.twitter.com/engineering
+https://engineering.linkedin.com/blog
+https://medium.com/airbnb-engineering/tagged/performance
+
+# Industry Events & Conferences
+https://www.performance-days.com/
+https://qconferences.com/
+https://www.stickyminds.com/
+https://www.techwell.com/software-testing-conferences
+https://www.associationforsoftwaretesting.org/conferences/
