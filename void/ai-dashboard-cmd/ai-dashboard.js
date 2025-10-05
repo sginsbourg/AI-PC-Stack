@@ -199,7 +199,7 @@ class AIDashboard {
 
     setupConsole() {
         console.clear();
-        process.title = 'AI Services Dashboard - Enhanced Wide Display';
+        process.title = 'AI Services Dashboard';
         
         // Handle Ctrl+C gracefully
         process.on('SIGINT', () => {
@@ -526,7 +526,8 @@ class AIDashboard {
         const headerLine = '='.repeat(this.innerWidth);
         console.log(headerLine);
         
-        const title = `${this.green}🚀 AI SERVICES DASHBOARD - ENHANCED WIDE DISPLAY ${this.reset}`;
+        // Removed " - ENHANCED WIDE DISPLAY"
+        const title = `${this.green}🚀 AI SERVICES DASHBOARD${this.reset}`;
         console.log(title);
         
         console.log(headerLine);
@@ -553,7 +554,7 @@ class AIDashboard {
     }
 
     displayServices() {
-        // Header row with exact column widths
+        // Header row with exact column widths - removed extra empty line before
         const serviceHeader = 'SERVICE'.padEnd(this.columnWidths.service);
         const portHeader = 'PORT'.padEnd(this.columnWidths.port);
         const statusHeader = 'STATUS'.padEnd(this.columnWidths.statusIcon);
@@ -563,7 +564,7 @@ class AIDashboard {
         const uptimeHeader = 'UPTIME'.padEnd(this.columnWidths.uptime);
         
         const headerLine = serviceHeader + portHeader + statusHeader + infoHeader + responseHeader + checkHeader + uptimeHeader;
-        console.log(`\n${this.cyan}${headerLine}${this.reset}`);
+        console.log(`${this.cyan}${headerLine}${this.reset}`); // Removed \n before this line
         console.log('-'.repeat(this.innerWidth));
 
         // Service rows with fixed column widths and proper spacing
@@ -855,7 +856,7 @@ class AIDashboard {
     }
 
     async start() {
-        console.log(`${this.green}Initializing Enhanced AI Services Dashboard...${this.reset}`);
+        console.log(`${this.green}Initializing AI Services Dashboard...${this.reset}`);
         console.log(`${this.blue}CPU Cores: ${this.cpuCores} | Auto-refresh: 10s${this.reset}`);
         
         this.monitoringInterval = setInterval(() => {
@@ -869,7 +870,7 @@ class AIDashboard {
         this.setupInputHandling();
         this.displayDashboard();
         
-        console.log(`\n${this.green}Enhanced dashboard started successfully!${this.reset}`);
+        console.log(`\n${this.green}Dashboard started successfully!${this.reset}`);
         console.log(`${this.cyan}Hardware monitoring active | Service refresh: 10s${this.reset}`);
     }
 
