@@ -256,7 +256,7 @@ class AIDashboard {
                     
                     // Check for any GPU via Windows
                     exec('wmic path win32_videocontroller get name', (error, stdout) => {
-                        if (!error && stdout && stdout.includes('NVIDIA') || stdout.includes('AMD') || stdout.includes('Radeon') || stdout.includes('Intel')) {
+                        if (!error && stdout && (stdout.includes('NVIDIA') || stdout.includes('AMD') || stdout.includes('Radeon') || stdout.includes('Intel'))) {
                             this.hasGPU = true;
                             this.systemMetrics.gpu = '0%';
                         }
@@ -319,7 +319,7 @@ class AIDashboard {
         
         if (totalDifference > 0) {
             const usage = 100 - (100 * idleDifference / totalDifference);
-            this.cpuUsage = Math.round(usage); // Rounded to integer
+            this.cpuUsage = Math.round(usage);
             this.systemMetrics.cpu = `${this.cpuUsage}%`;
         }
         
@@ -403,7 +403,7 @@ class AIDashboard {
                         // Simulate NPU usage based on system load
                         const simulatedUsage = Math.min(100, Math.round(this.cpuUsage * 0.3));
                         this.npuUsage = Math.round(simulatedUsage);
-                        this.systemMetrics.npu = `${this.npuUsage}%';
+                        this.systemMetrics.npu = `${this.npuUsage}%`;
                     }
                 } else {
                     // Fallback simulation - minimal usage
