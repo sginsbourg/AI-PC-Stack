@@ -2,3 +2,5 @@
 /__pycache__
 /node_modules
 /ai-stack-dashboard/node_modules
+/void/ai-dashboard/ai-dashboard-gui/node_modules
+/void/ai-dashboard/ai-dashboard-gui/service_logs

@@ -1,0 +1,7 @@
+local_services:
+  nutch: http://localhost:8899
+  ollama: http://localhost:11434
+  melotts: http://localhost:9880
+  openmanus: http://localhost:7860
+  opensora: http://localhost:7861
+  tg_webui: http://localhost:7862

@@ -1,0 +1,15 @@
+{
+  "name": "ai-dashboard-gui",
+  "version": "1.0.0",
+  "description": "Local AI Services Dashboard GUI (Electron)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": ["ai", "dashboard", "local", "services", "electron"],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.2.0" 
+  }
+} 
