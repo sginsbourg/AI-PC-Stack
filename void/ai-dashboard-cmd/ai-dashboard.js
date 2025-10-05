@@ -345,36 +345,59 @@ class AIDashboard {
         // CPU is now updated in real-time via updateCpuUsage()
 
         try {
-            // Disk - More reliable method using exec
-            exec('wmic logicaldisk where DeviceID="C:" get Size,FreeSpace /value', (err, stdout) => {
-                if (!err && stdout) {
-                    const lines = stdout.split('\r\n');
-                    let size = 0, free = 0;
-                    
-                    for (let line of lines) {
-                        if (line.startsWith('Size=')) {
-                            size = parseInt(line.split('=')[1]);
-                        } else if (line.startsWith('FreeSpace=')) {
-                            free = parseInt(line.split('=')[1]);
-                        }
-                    }
-                    
-                    if (size > 0 && free > 0) {
-                        const used = size - free;
-                        const diskPercent = Math.round((used / size) * 100);
-                        const usedGB = (used / 1024 / 1024 / 1024).toFixed(1);
-                        const totalGB = (size / 1024 / 1024 / 1024).toFixed(1);
-                        this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
-                    } else {
-                        this.systemMetrics.disk = 'N/A';
-                    }
-                } else {
-                    this.systemMetrics.disk = 'N/A';
-                }
-            });
+            // Disk - More reliable method using fs
+            this.updateDiskUsage();
         } catch (error) {
             this.systemMetrics.disk = 'N/A';
         }
+    }
+
+    updateDiskUsage() {
+        // Use Node.js built-in fs for disk info (more reliable)
+        try {
+            const stats = fs.statfsSync('/');
+            if (stats && stats.bsize) {
+                const total = stats.blocks * stats.bsize;
+                const free = stats.bfree * stats.bsize;
+                const used = total - free;
+                const diskPercent = Math.round((used / total) * 100);
+                const usedGB = (used / 1024 / 1024 / 1024).toFixed(1);
+                const totalGB = (total / 1024 / 1024 / 1024).toFixed(1);
+                this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
+                return;
+            }
+        } catch (error) {
+            // Fall back to wmic for Windows
+        }
+
+        // Windows fallback using wmic
+        exec('wmic logicaldisk where DeviceID="C:" get Size,FreeSpace /value', (err, stdout) => {
+            if (err || !stdout) {
+                this.systemMetrics.disk = 'N/A';
+                return;
+            }
+
+            const lines = stdout.split('\r\n');
+            let size = 0, free = 0;
+            
+            for (let line of lines) {
+                if (line.startsWith('Size=')) {
+                    size = parseInt(line.split('=')[1]);
+                } else if (line.startsWith('FreeSpace=')) {
+                    free = parseInt(line.split('=')[1]);
+                }
+            }
+            
+            if (size > 0 && free >= 0) {
+                const used = size - free;
+                const diskPercent = Math.round((used / size) * 100);
+                const usedGB = (used / 1024 / 1024 / 1024).toFixed(1);
+                const totalGB = (size / 1024 / 1024 / 1024).toFixed(1);
+                this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
+            } else {
+                this.systemMetrics.disk = 'N/A';
+            }
+        });
     }
 
     displayHeader() {
@@ -467,7 +490,8 @@ class AIDashboard {
         console.log(controls);
         console.log(footerLine);
         
-        const tip = `${this.yellow}💡 TIP:${this.reset} Dashboard width: ${this.innerWidth} chars | Services: ${this.services.length} | Auto-refresh: 2s | CPU Cores: ${this.cpuCores}`;
+        // Updated tip line - removed dashboard width, fixed auto-refresh to 10s
+        const tip = `${this.yellow}💡 TIP:${this.reset} Services: ${this.services.length} | Auto-refresh: 10s | CPU Cores: ${this.cpuCores}`;
         console.log(tip);
     }
 
@@ -715,21 +739,22 @@ class AIDashboard {
 
     async start() {
         console.log(`${this.green}Initializing Enhanced AI Services Dashboard...${this.reset}`);
-        console.log(`${this.blue}Dashboard Width: ${this.innerWidth} characters | CPU Cores: ${this.cpuCores}${this.reset}`);
+        console.log(`${this.blue}CPU Cores: ${this.cpuCores} | Auto-refresh: 10s${this.reset}`);
         
+        // Updated monitoring intervals to 10 seconds
         this.monitoringInterval = setInterval(() => {
             this.monitorServices();
-        }, 5000);
+        }, 10000); // 10 seconds
 
         this.dashboardUpdateInterval = setInterval(() => {
             this.displayDashboard();
-        }, 2000);
+        }, 10000); // 10 seconds
 
         this.setupInputHandling();
         this.displayDashboard();
         
         console.log(`\n${this.green}Enhanced dashboard started successfully!${this.reset}`);
-        console.log(`${this.cyan}Real-time CPU monitoring active${this.reset}`);
+        console.log(`${this.cyan}Real-time CPU monitoring active | Service refresh: 10s${this.reset}`);
     }
 
     async shutdown() {
