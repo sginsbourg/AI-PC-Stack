@@ -252,4 +252,69 @@ class AIDashboard {
             });
         } catch (error) {
             console.error('Error in disk metrics update:', error.message);
-            this.systemMetrics.disk
+            this.systemMetrics.disk = 'N/A';
+        }
+    }
+
+    // Add the missing methods that should follow (placeholder implementations)
+    getStatusIcon(status) {
+        const icons = {
+            'running': '🟢',
+            'starting': '🟡',
+            'stopped': '⚪',
+            'crashed': '🔴',
+            'slow': '🟠'
+        };
+        return icons[status] || '⚪';
+    }
+
+    setupConsole() {
+        // Basic console setup
+        console.log('AI Dashboard initialized');
+    }
+
+    // Add other essential methods that would be needed
+    startService(service) {
+        console.log(`Starting ${service.name}...`);
+        // Implementation would go here
+    }
+
+    stopService(service) {
+        console.log(`Stopping ${service.name}...`);
+        // Implementation would go here
+    }
+
+    restartService(service) {
+        console.log(`Restarting ${service.name}...`);
+        // Implementation would go here
+    }
+
+    startAllServices() {
+        console.log('Starting all services...');
+        // Implementation would go here
+    }
+
+    stopAllServices() {
+        console.log('Stopping all services...');
+        // Implementation would go here
+    }
+
+    displayDashboard() {
+        console.log('=== AI Services Dashboard ===');
+        // Implementation would go here
+    }
+
+    // Main method to start the dashboard
+    start() {
+        this.displayDashboard();
+        console.log('Dashboard started. Press Ctrl+C to exit.');
+    }
+}
+
+// Create and start the dashboard if this file is run directly
+if (require.main === module) {
+    const dashboard = new AIDashboard();
+    dashboard.start();
+}
+
+module.exports = AIDashboard;
