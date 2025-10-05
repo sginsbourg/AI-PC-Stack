@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
 const http = require('http');
+const os = require('os');
 
 class AIDashboard {
     constructor() {
@@ -20,7 +21,9 @@ class AIDashboard {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'java'
+                type: 'java',
+                restartCount: 0,
+                maxRestarts: 5
             },
             {
                 name: 'Ollama',
@@ -35,7 +38,9 @@ class AIDashboard {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'executable'
+                type: 'executable',
+                restartCount: 0,
+                maxRestarts: 5
             },
             {
                 name: 'MeloTTS',
@@ -50,7 +55,9 @@ class AIDashboard {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'python'
+                type: 'python',
+                restartCount: 0,
+                maxRestarts: 5
             },
             {
                 name: 'OpenManus',
@@ -65,7 +72,9 @@ class AIDashboard {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'streamlit'
+                type: 'streamlit',
+                restartCount: 0,
+                maxRestarts: 5
             },
             {
                 name: 'OpenSora',
@@ -80,7 +89,9 @@ class AIDashboard {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'streamlit'
+                type: 'streamlit',
+                restartCount: 0,
+                maxRestarts: 5
             },
             {
                 name: 'tg-webui',
@@ -95,7 +106,9 @@ class AIDashboard {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'python'
+                type: 'python',
+                restartCount: 0,
+                maxRestarts: 5
             }
         ];
 
@@ -107,18 +120,120 @@ class AIDashboard {
         this.voidAlreadyRunning = false;
         this.monitoringInterval = null;
         this.dashboardUpdateInterval = null;
+        this.prevSent = 0;
+        this.prevRecv = 0;
+        this.prevTime = Date.now();
+        this.systemMetrics = {
+            cpu: 'N/A',
+            ram: 'N/A',
+            disk: 'N/A',
+            net: 'N/A'
+        };
         
         this.setupConsole();
-        this.innerWidth = 76; // Fixed inner content width for alignment
+        this.innerWidth = 78;
+        this.columnWidths = {
+            service: 12,
+            port: 8,
+            statusIcon: 8,
+            statusInfo: 15,
+            responseTime: 16,
+            lastCheck: 14
+        };
         this.red = '\x1b[31m';
+        this.green = '\x1b[32m';
+        this.blinkGreen = '\x1b[32;5m';
         this.reset = '\x1b[0m';
+    }
+
+    stripAnsi(str) {
+        return str.replace(/\x1b\[[0-9;]*m/g, '');
+    }
+
+    isAllServicesHealthy() {
+        return this.services.every(service => this.getStatusIcon(service.status) === 'OK');
+    }
+
+    updateSystemMetrics() {
+        // RAM sync
+        const totalMem = os.totalmem() / 1024 / 1024 / 1024; // GB
+        const freeMem = os.freemem() / 1024 / 1024 / 1024;
+        const usedMem = totalMem - freeMem;
+        const ramPercent = Math.round((usedMem / totalMem) * 100);
+        this.systemMetrics.ram = ramPercent + '%';
+
+        // CPU
+        exec('wmic cpu get loadpercentage /value', (err, stdout, stderr) => {
+            if (!err && stdout) {
+                const lines = stdout.trim().split('\n');
+                for (let line of lines) {
+                    if (line.includes('LoadPercentage')) {
+                        const percent = line.match(/(\d+)/);
+                        if (percent) {
+                            this.systemMetrics.cpu = percent[1] + '%';
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        // Disk C:
+        exec('wmic logicaldisk where DeviceID="C:" get Size,FreeSpace /value', (err, stdout, stderr) => {
+            if (!err && stdout) {
+                const lines = stdout.trim().split('\n');
+                let size = 0, free = 0;
+                for (let line of lines) {
+                    if (line.includes('Size=')) {
+                        const match = line.match(/Size=(\d+)/);
+                        if (match) size = parseInt(match[1]);
+                    } else if (line.includes('FreeSpace=')) {
+                        const match = line.match(/FreeSpace=(\d+)/);
+                        if (match) free = parseInt(match[1]);
+                    }
+                }
+                if (size > 0) {
+                    const used = size - free;
+                    const diskPercent = Math.round((used / size) * 100);
+                    this.systemMetrics.disk = diskPercent + '%';
+                }
+            }
+        });
+
+        // Network
+        exec('netstat -e', (err, stdout, stderr) => {
+            if (!err && stdout) {
+                const lines = stdout.split('\n');
+                for (let line of lines) {
+                    if (line.includes('Bytes')) {
+                        const sentMatch = line.match(/Sent\s+(\d+)/);
+                        const recvMatch = line.match(/Received\s+(\d+)/);
+                        if (sentMatch && recvMatch) {
+                            const sent = parseInt(sentMatch[1]);
+                            const recv = parseInt(recvMatch[1]);
+                            const now = Date.now();
+                            const deltaTime = (now - this.prevTime) / 1000;
+                            if (deltaTime > 0) {
+                                const sentRate = Math.round((sent - this.prevSent) / deltaTime / 1024); // KB/s
+                                const recvRate = Math.round((recv - this.prevRecv) / deltaTime / 1024);
+                                this.systemMetrics.net = `${sentRate}↑/${recvRate}↓ KB/s`;
+                            }
+                            this.prevSent = sent;
+                            this.prevRecv = recv;
+                            this.prevTime = now;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
     }
 
     setupConsole() {
         console.clear();
         console.log('╔══════════════════════════════════════════════════════════════════════════════╗');
-        console.log('║                          AI SERVICES DASHBOARD v3.1                         ║');
-        console.log('║                    Fixed Path Errors & Final Polish                        ║');
+        console.log('║                          AI SERVICES DASHBOARD v3.2                         ║');
+        console.log('║                    Featuring Auto-Recovery & Fixed Logging                  ║');
         console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
     }
 
@@ -333,9 +448,8 @@ class AIDashboard {
 
     startMonitoring() {
         this.monitoringInterval = setInterval(() => {
-            this.services.forEach(service => {
-                this.updateServiceStatus(service);
-            });
+            this.services.forEach(service => this.updateServiceStatus(service));
+            this.updateSystemMetrics();
         }, 2000);
     }
 
@@ -350,6 +464,15 @@ class AIDashboard {
             this.checkResponseTime(service);
         } else {
             service.status = 'stopped';
+        }
+
+        // Auto-recovery: restart if crashed or failed, within limits
+        if ((service.status === 'crashed' || service.status === 'failed' || service.status === 'unresponsive') && 
+            service.restartCount < service.maxRestarts) {
+            console.log(`\nAuto-recovering ${service.name} (attempt ${service.restartCount + 1}/${service.maxRestarts})...`);
+            this.restartService(service);
+        } else if (service.status === 'crashed' || service.status === 'failed') {
+            service.status = 'failed_permanently';
         }
     }
 
@@ -391,6 +514,7 @@ class AIDashboard {
         for (const service of this.services) {
             if (!service.alreadyRunning) {
                 await this.startService(service);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Stagger starts
             }
         }
     }
@@ -398,36 +522,41 @@ class AIDashboard {
     async startService(service) {
         return new Promise((resolve) => {
             const logPath = path.join(this.logDir, service.logFile);
-            const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-
-            let cmdArgs = [service.command, ...service.args];
-            if (service.type === 'java') {
-                cmdArgs = service.args;
-            }
+            const workingDir = service.workingDir || process.cwd();
 
             service.process = spawn(service.command, service.args, {
-                cwd: service.workingDir,
-                stdio: ['ignore', logStream, logStream],
+                cwd: workingDir,
+                stdio: ['ignore', 'pipe', 'pipe'],
                 detached: true
+            });
+
+            // Log stdout and stderr
+            service.process.stdout.on('data', (data) => {
+                fs.appendFileSync(logPath, data.toString());
+            });
+
+            service.process.stderr.on('data', (data) => {
+                fs.appendFileSync(logPath, data.toString());
             });
 
             service.process.on('spawn', () => {
                 service.pid = service.process.pid;
                 service.status = 'starting';
                 service.startTime = Date.now();
+                service.restartCount++;
             });
 
             service.process.on('error', (error) => {
                 service.status = 'failed';
                 console.log('   X ' + service.name + ' failed to start: ' + error.message);
-                resolve();
             });
 
             service.process.on('close', (code) => {
                 if (code !== 0) {
                     service.status = 'crashed';
+                } else {
+                    service.status = 'stopped';
                 }
-                resolve();
             });
 
             setTimeout(() => resolve(), 1000);
@@ -460,56 +589,102 @@ class AIDashboard {
         console.clear();
         this.setupConsole();
 
-        console.log('║ SERVICE        PORT     STATUS   STATUS INFO      RESPONSE TIME    LAST CHECK  ║'.padEnd(80, ' '));
-        console.log('╠═══════════════════════════════╤════════════╤═══════════════════╤══════════════╣');
+        // Header
+        const header = 'SERVICE'.padEnd(this.columnWidths.service) + 
+                       'PORT'.padEnd(this.columnWidths.port) + 
+                       'ICON'.padEnd(this.columnWidths.statusIcon) + 
+                       'STATUS'.padEnd(this.columnWidths.statusInfo) + 
+                       'RESPONSE'.padEnd(this.columnWidths.responseTime) + 
+                       'TIME'.padEnd(this.columnWidths.lastCheck);
+        console.log('║ ' + header + ' ║');
+
+        // Separator
+        const sep = `╠${'═'.repeat(this.columnWidths.service)}╤${'═'.repeat(this.columnWidths.port)}╤${'═'.repeat(this.columnWidths.statusIcon)}╤${'═'.repeat(this.columnWidths.statusInfo)}╤${'═'.repeat(this.columnWidths.responseTime)}╤${'═'.repeat(this.columnWidths.lastCheck)}╣`;
+        console.log(sep);
 
         this.services.forEach(service => {
             const statusIcon = this.getStatusIcon(service.status);
-            const statusDisplay = this.getStatusDisplay(service.status, service.alreadyRunning);
-            const responseTime = service.responseTime || 'N/A';
-            const lastCheck = new Date().toLocaleTimeString();
+            let statusDisplay = this.getStatusDisplay(service.status, service.alreadyRunning);
+            const responseTime = (service.responseTime || 'N/A').padEnd(this.columnWidths.responseTime);
+            const lastCheck = new Date().toLocaleTimeString().padEnd(this.columnWidths.lastCheck);
 
-            // Color status if not OK
-            let coloredIcon = statusIcon;
-            let coloredDisplay = statusDisplay.padEnd(12);
-            if (statusIcon !== 'OK') {
-                coloredIcon = this.red + statusIcon + this.reset;
-                const displayLength = statusDisplay.length;
-                coloredDisplay = this.red + statusDisplay + this.reset + ' '.repeat(12 - displayLength);
+            // Truncate statusDisplay if too long
+            if (statusDisplay.length > this.columnWidths.statusInfo) {
+                statusDisplay = statusDisplay.substring(0, this.columnWidths.statusInfo - 3) + '...';
             }
 
-            let lineContent = service.name.padEnd(12) + ' ' + 
-                              service.port.toString().padEnd(8) + ' ' + 
-                              coloredIcon + ' ' + 
-                              coloredDisplay + ' ' + 
-                              responseTime.padEnd(15) + ' ' + 
-                              lastCheck.padEnd(12);
+            // Color status: green if OK, red otherwise
+            let coloredIcon = statusIcon;
+            let coloredDisplay = statusDisplay;
+            if (statusIcon === 'OK') {
+                coloredIcon = this.green + statusIcon + this.reset;
+                coloredDisplay = this.green + statusDisplay + this.reset;
+            } else {
+                coloredIcon = this.red + statusIcon + this.reset;
+                coloredDisplay = this.red + statusDisplay + this.reset;
+            }
 
-            // Pad to fixed inner width
+            const iconWithDash = coloredIcon + ' -- ';
+            const visibleIconDashLength = this.stripAnsi(iconWithDash).length;
+            const iconDashPadded = iconWithDash + ' '.repeat(this.columnWidths.statusIcon - visibleIconDashLength);
+
+            const visibleDisplayLength = this.stripAnsi(coloredDisplay).length;
+            const displayPadded = coloredDisplay + ' '.repeat(this.columnWidths.statusInfo - visibleDisplayLength);
+
+            let lineContent = service.name.padEnd(this.columnWidths.service) +
+                              service.port.toString().padEnd(this.columnWidths.port) +
+                              iconDashPadded +
+                              displayPadded +
+                              responseTime +
+                              lastCheck;
+
+            // Ensure total inner width
             lineContent = lineContent.padEnd(this.innerWidth);
 
             console.log('║ ' + lineContent + ' ║');
         });
 
+        // System metrics row
+        console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
+        let systemContent = 'SYSTEM'.padEnd(this.columnWidths.service) +
+                            'N/A'.padEnd(this.columnWidths.port) +
+                            'N/A'.padEnd(this.columnWidths.statusIcon) +
+                            ('CPU: ' + this.systemMetrics.cpu + ' RAM: ' + this.systemMetrics.ram).padEnd(this.columnWidths.statusInfo) +
+                            ('DISK: ' + this.systemMetrics.disk + ' NET: ' + this.systemMetrics.net).padEnd(this.columnWidths.responseTime + this.columnWidths.lastCheck);
+        systemContent = systemContent.padEnd(this.innerWidth);
+        console.log('║ ' + systemContent + ' ║');
+
         console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
         
         let voidStatus = 'X NOT INSTALLED';
+        let coloredVoidStatus = voidStatus;
         if (this.voidFound) {
             if (this.voidAlreadyRunning) {
                 voidStatus = 'OK EXTERNAL';
+                coloredVoidStatus = this.green + voidStatus + this.reset;
             } else if (this.voidProcess) {
                 voidStatus = 'OK RUNNING';
+                coloredVoidStatus = this.green + voidStatus + this.reset;
             } else {
                 voidStatus = 'O READY';
+                coloredVoidStatus = this.green + voidStatus + this.reset;
             }
+        } else {
+            coloredVoidStatus = this.red + voidStatus + this.reset;
         }
         
-        let voidLineContent = 'Void AI Status: ' + voidStatus;
+        let voidLineContent = 'Void AI Status: ' + coloredVoidStatus;
         voidLineContent = voidLineContent.padEnd(this.innerWidth);
         console.log('║ ' + voidLineContent + ' ║');
         console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
 
         let controls1 = '[V] Launch Void AI  [R] Restart Services  [L] View Logs  [D] Diagnostics';
+        const allHealthy = this.isAllServicesHealthy();
+        const voidNotRunning = !this.voidAlreadyRunning && !this.voidProcess;
+        if (allHealthy && voidNotRunning && this.voidFound) {
+            const vPart = this.blinkGreen + '[V] Launch Void AI' + this.reset;
+            controls1 = vPart + '  [R] Restart Services  [L] View Logs  [D] Diagnostics';
+        }
         controls1 = controls1.padEnd(this.innerWidth);
         console.log('║ ' + controls1 + ' ║');
 
@@ -523,7 +698,8 @@ class AIDashboard {
     getStatusIcon(status) {
         const icons = {
             'running': 'OK', 'responding': 'OK', 'starting': 'WAIT', 'slow': 'SLOW',
-            'stopped': 'O', 'crashed': 'X', 'failed': 'X', 'unresponsive': 'SLOW'
+            'stopped': 'O', 'crashed': 'X', 'failed': 'X', 'unresponsive': 'SLOW',
+            'failed_permanently': 'XX'
         };
         return icons[status] || '?';
     }
@@ -533,7 +709,7 @@ class AIDashboard {
         const displays = {
             'running': 'RUNNING', 'responding': 'HEALTHY', 'starting': 'STARTING',
             'slow': 'SLOW', 'stopped': 'STOPPED', 'crashed': 'CRASHED',
-            'failed': 'FAILED', 'unresponsive': 'NO RESPONSE'
+            'failed': 'FAILED', 'unresponsive': 'NO RESPONSE', 'failed_permanently': 'FAILED (MAX RESTARTS)'
         };
         return displays[status] || status.toUpperCase();
     }
@@ -587,6 +763,7 @@ class AIDashboard {
             console.log('   Port: ' + service.port + ' | PID: ' + (service.pid || 'N/A') + ' | Uptime: ' + uptime);
             console.log('   Directory: ' + service.workingDir);
             console.log('   Command: ' + service.command + ' ' + service.args.join(' '));
+            console.log('   Restarts: ' + service.restartCount + '/' + service.maxRestarts);
             
             if (service.status === 'crashed' || service.status === 'failed') {
                 console.log('   Tip: Test manually: cd "' + service.workingDir + '" && ' + service.command + ' ' + service.args.join(' '));
@@ -711,6 +888,7 @@ class AIDashboard {
             } catch (e) {}
         }
         
+        service.restartCount = 0; // Reset count on manual restart
         await this.startService(service);
     }
 
