@@ -10,74 +10,92 @@ class AIDashboard {
             {
                 name: 'Nutch',
                 port: 8899,
-                command: `cd "${path.join(process.env.USERPROFILE, 'AI_STACK', 'apache-nutch-1.21')}" && java -cp "lib/*;conf" org.apache.nutch.service.NutchServer -port 8899`,
+                command: 'java',
+                args: ['-cp', 'lib/*;conf', 'org.apache.nutch.service.NutchServer', '-port', '8899'],
+                workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'apache-nutch-1.21'),
                 logFile: 'nutch.log',
                 process: null,
                 pid: null,
                 status: 'stopped',
                 startTime: null,
                 responseTime: null,
-                alreadyRunning: false
+                alreadyRunning: false,
+                type: 'java'
             },
             {
                 name: 'Ollama',
                 port: 11434,
-                command: 'ollama serve',
+                command: 'ollama',
+                args: ['serve'],
+                workingDir: process.cwd(),
                 logFile: 'ollama.log',
                 process: null,
                 pid: null,
                 status: 'stopped',
                 startTime: null,
                 responseTime: null,
-                alreadyRunning: false
+                alreadyRunning: false,
+                type: 'executable'
             },
             {
                 name: 'MeloTTS',
                 port: 9880,
-                command: `cd "${path.join(process.env.USERPROFILE, 'AI_STACK', 'MeloTTS')}" && python melo/api.py`,
+                command: 'python',
+                args: ['test_melotts.py'],
+                workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'MeloTTS'),
                 logFile: 'melotts.log',
                 process: null,
                 pid: null,
                 status: 'stopped',
                 startTime: null,
                 responseTime: null,
-                alreadyRunning: false
+                alreadyRunning: false,
+                type: 'python'
             },
             {
                 name: 'OpenManus',
                 port: 7860,
-                command: `cd "${path.join(process.env.USERPROFILE, 'AI_STACK', 'OpenManus')}" && python app.py`,
+                command: 'streamlit',
+                args: ['run', 'main.py', '--server.port', '7860', '--server.address', '0.0.0.0'],
+                workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'OpenManus'),
                 logFile: 'openmanus.log',
                 process: null,
                 pid: null,
                 status: 'stopped',
                 startTime: null,
                 responseTime: null,
-                alreadyRunning: false
+                alreadyRunning: false,
+                type: 'streamlit'
             },
             {
                 name: 'OpenSora',
                 port: 7861,
-                command: `cd "${path.join(process.env.USERPROFILE, 'AI_STACK', 'OpenSora')}" && python app.py`,
+                command: 'streamlit',
+                args: ['run', 'opensora_web.py', '--server.port', '7861', '--server.address', '0.0.0.0'],
+                workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'OpenSora'),
                 logFile: 'opensora.log',
                 process: null,
                 pid: null,
                 status: 'stopped',
                 startTime: null,
                 responseTime: null,
-                alreadyRunning: false
+                alreadyRunning: false,
+                type: 'streamlit'
             },
             {
                 name: 'tg-webui',
                 port: 7862,
-                command: `cd "${path.join(process.env.USERPROFILE, 'AI_STACK', 'tg-webui')}" && python webui.py --api`,
+                command: 'python',
+                args: ['server.py', '--api'],
+                workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'tg-webui'),
                 logFile: 'tg-webui.log',
                 process: null,
                 pid: null,
                 status: 'stopped',
                 startTime: null,
                 responseTime: null,
-                alreadyRunning: false
+                alreadyRunning: false,
+                type: 'python'
             }
         ];
 
@@ -86,6 +104,7 @@ class AIDashboard {
         this.voidFound = false;
         this.voidProcess = null;
         this.voidPath = null;
+        this.voidAlreadyRunning = false;
         this.monitoringInterval = null;
         this.dashboardUpdateInterval = null;
         
@@ -95,8 +114,8 @@ class AIDashboard {
     setupConsole() {
         console.clear();
         console.log('╔══════════════════════════════════════════════════════════════════════════════╗');
-        console.log('║                          AI SERVICES DASHBOARD v2.3                         ║');
-        console.log('║                  Fixed Void AI Launch & Service Detection                   ║');
+        console.log('║                          AI SERVICES DASHBOARD v3.1                         ║');
+        console.log('║                    Fixed Path Errors & Final Polish                        ║');
         console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
     }
 
@@ -106,16 +125,19 @@ class AIDashboard {
             fs.mkdirSync(this.logDir);
         }
 
-        // Check for running services first
+        // Run enhanced diagnostics that checks for missing files
+        await this.runEnhancedDiagnostics();
+
+        // Check for running services
         await this.checkRunningServices();
 
-        // Check for Void AI with advanced detection
+        // Check for Void AI
         await this.checkVoidAI();
 
         // Start monitoring
         this.startMonitoring();
 
-        // Start all services (only those not already running)
+        // Start all services
         await this.startAllServices();
 
         // Create Void AI config
@@ -128,8 +150,121 @@ class AIDashboard {
         this.showDashboard();
     }
 
+    async runEnhancedDiagnostics() {
+        console.log('🔧 Running enhanced diagnostics...');
+        
+        // Check basic prerequisites
+        const checks = [
+            { name: 'Python', command: 'python --version' },
+            { name: 'Java', command: 'java -version' },
+            { name: 'Pip', command: 'pip --version' },
+            { name: 'Streamlit', command: 'streamlit --version' }
+        ];
+
+        for (const check of checks) {
+            try {
+                await new Promise((resolve, reject) => {
+                    exec(check.command, (error) => {
+                        if (error) {
+                            console.log(`   ❌ ${check.name}: Not found in PATH`);
+                            if (check.name === 'Streamlit') {
+                                console.log(`   💡 Install with: pip install streamlit`);
+                            }
+                            reject(error);
+                        } else {
+                            console.log(`   ✅ ${check.name}: Installed`);
+                            resolve();
+                        }
+                    });
+                });
+            } catch (error) {
+                // Error already logged
+            }
+        }
+
+        // Check project directories and main files
+        console.log('\n📁 Checking project files:');
+        for (const service of this.services) {
+            if (service.workingDir && service.workingDir !== process.cwd()) {
+                if (fs.existsSync(service.workingDir)) {
+                    // Get the main file path safely
+                    let mainFile;
+                    if (service.type === 'streamlit') {
+                        const runIndex = service.args.indexOf('run');
+                        mainFile = runIndex !== -1 && service.args[runIndex + 1] ? 
+                            path.join(service.workingDir, service.args[runIndex + 1]) :
+                            null;
+                    } else if (service.type === 'python') {
+                        mainFile = service.args.length > 0 ? 
+                            path.join(service.workingDir, service.args[0]) :
+                            null;
+                    } else {
+                        mainFile = service.workingDir; // For Java/executable services
+                    }
+
+                    if (mainFile && fs.existsSync(mainFile)) {
+                        console.log(`   ✅ ${service.name}: Main file exists`);
+                    } else {
+                        console.log(`   ❌ ${service.name}: Main file issue - ${service.args.join(' ')}`);
+                        console.log(`   💡 Check if the project is properly downloaded/cloned`);
+                        
+                        // Try to find alternative main files for Python services
+                        if (service.type === 'python' || service.type === 'streamlit') {
+                            this.findAlternativeMainFiles(service);
+                        }
+                    }
+                } else {
+                    console.log(`   ❌ ${service.name}: MISSING DIRECTORY - ${service.workingDir}`);
+                }
+            }
+        }
+    }
+
+    findAlternativeMainFiles(service) {
+        const alternatives = ['main.py', 'server.py', 'run.py', 'start.py', 'application.py', 'app.py'];
+        console.log(`   🔍 ${service.name}: Looking for alternative main files...`);
+        
+        let found = false;
+        for (const alt of alternatives) {
+            const altPath = path.join(service.workingDir, alt);
+            if (fs.existsSync(altPath)) {
+                console.log(`   💡 Found: ${alt} - service will use this file`);
+                // Update the service to use the found file
+                if (service.type === 'streamlit') {
+                    service.args = ['run', alt, '--server.port', service.port.toString(), '--server.address', '0.0.0.0'];
+                } else {
+                    service.args = [alt];
+                }
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            // List Python files in the directory
+            try {
+                const files = fs.readdirSync(service.workingDir);
+                const pyFiles = files.filter(f => f.endsWith('.py') && !f.startsWith('__'));
+                if (pyFiles.length > 0) {
+                    console.log(`   📄 Available Python files: ${pyFiles.join(', ')}`);
+                    // Use the first Python file found
+                    if (service.type === 'streamlit') {
+                        service.args = ['run', pyFiles[0], '--server.port', service.port.toString(), '--server.address', '0.0.0.0'];
+                    } else {
+                        service.args = [pyFiles[0]];
+                    }
+                    console.log(`   💡 Using: ${pyFiles[0]}`);
+                } else {
+                    console.log(`   ❌ No Python files found in directory`);
+                }
+            } catch (e) {
+                console.log(`   ❌ Cannot read directory`);
+            }
+        }
+    }
+
     async checkRunningServices() {
-        console.log('🔍 Checking for already running services...');
+        console.log('\n🔍 Checking for already running services...');
         
         for (const service of this.services) {
             const isRunning = await this.checkServiceRunning(service);
@@ -139,70 +274,54 @@ class AIDashboard {
                 console.log(`   ✅ ${service.name} is already running`);
             }
         }
+
+        await this.checkVoidAIRunning();
+    }
+
+    async checkVoidAIRunning() {
+        return new Promise((resolve) => {
+            exec('tasklist /FI "IMAGENAME eq void.exe" /FO CSV', (error, stdout) => {
+                if (!error && stdout.includes('void.exe')) {
+                    this.voidAlreadyRunning = true;
+                    console.log('   ✅ Void AI is already running');
+                }
+                resolve();
+            });
+        });
     }
 
     async checkServiceRunning(service) {
         return new Promise((resolve) => {
-            // First check if the port is responsive
             const req = http.request({
                 hostname: 'localhost',
                 port: service.port,
                 path: '/',
                 method: 'GET',
-                timeout: 2000
+                timeout: 3000
             }, (res) => {
                 resolve(true);
                 req.destroy();
             });
 
-            req.on('error', () => {
-                // If port check fails, check if process is running by name
-                this.checkProcessByName(service).then(resolve);
-            });
-
+            req.on('error', () => resolve(false));
             req.on('timeout', () => {
                 req.destroy();
-                this.checkProcessByName(service).then(resolve);
+                resolve(false);
             });
 
             req.end();
         });
     }
 
-    async checkProcessByName(service) {
-        return new Promise((resolve) => {
-            let processName = '';
-            if (service.name === 'Nutch') processName = 'java.exe';
-            else if (service.name === 'Ollama') processName = 'ollama.exe';
-            else processName = 'python.exe';
-
-            exec(`tasklist /FI "IMAGENAME eq ${processName}" /FO CSV`, (error, stdout) => {
-                if (error || !stdout.includes(processName)) {
-                    resolve(false);
-                } else {
-                    // Check if this specific service is likely running on the expected port
-                    exec(`netstat -ano | findstr :${service.port}`, (error, netstatOutput) => {
-                        resolve(netstatOutput.includes(service.port.toString()));
-                    });
-                }
-            });
-        });
-    }
-
     async checkVoidAI() {
-        console.log('🔍 Performing advanced Void AI detection...');
+        console.log('🔍 Checking for Void AI...');
         
         const possiblePaths = [
-            'void', // PATH
-            'void.exe', // PATH with extension
+            'void', 'void.exe',
             path.join(process.env.ProgramFiles, 'Void', 'bin', 'void.exe'),
             path.join(process.env.ProgramFiles, 'Void AI', 'bin', 'void.exe'),
             path.join(process.env.LOCALAPPDATA, 'Programs', 'void', 'void.exe'),
-            path.join(process.env.LOCALAPPDATA, 'Programs', 'void-ai', 'void.exe'),
             path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Programs', 'void', 'void.exe'),
-            path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Programs', 'void-ai', 'void.exe'),
-            path.join(process.cwd(), 'void.exe'),
-            path.join(process.cwd(), 'void')
         ];
 
         for (const voidPath of possiblePaths) {
@@ -215,22 +334,17 @@ class AIDashboard {
             }
         }
 
-        console.log('❌ Void AI not found in common locations');
-        this.showVoidInstallationGuide();
+        console.log('❌ Void AI not found');
     }
 
     async testVoidPath(voidPath) {
         return new Promise((resolve) => {
-            // Use where command for PATH detection, direct execution for full paths
             const command = voidPath.includes(path.sep) ? 
-                `"${voidPath}" --version` : 
-                `where ${voidPath}`;
+                `"${voidPath}" --version` : `where ${voidPath}`;
 
-            exec(command, (error, stdout, stderr) => {
+            exec(command, (error) => {
                 if (error) {
-                    // For full paths, try direct execution even if version fails
                     if (voidPath.includes(path.sep)) {
-                        // Check if file exists
                         fs.access(voidPath, fs.constants.F_OK, (err) => {
                             resolve(!err);
                         });
@@ -244,68 +358,15 @@ class AIDashboard {
         });
     }
 
-    showVoidInstallationGuide() {
-        console.log('\n📥 VOID AI INSTALLATION GUIDE:');
-        console.log('═'.repeat(70));
-        console.log('\n1. DOWNLOAD Void AI:');
-        console.log('   Visit: https://github.com/void-ai/void/releases');
-        console.log('   Download the latest Windows release');
-        
-        console.log('\n2. INSTALLATION OPTIONS:');
-        console.log('   Option A: Install to default location (recommended)');
-        console.log('   Option B: Extract to a folder and add to PATH');
-        
-        console.log('\n3. VERIFY INSTALLATION:');
-        console.log('   Open Command Prompt and run: void --version');
-        console.log('   If it shows version info, installation is successful');
-        
-        console.log('\n4. MANUAL LAUNCH (for now):');
-        console.log('   After installing, you can run:');
-        console.log('   void --config void_local.yaml');
-        
-        console.log('\n💡 Your AI services will still work without Void AI!');
-        console.log('   Access them directly via their URLs below.');
-        console.log('═'.repeat(70));
-    }
-
     startMonitoring() {
-        console.log('📊 Starting service monitoring...');
-        
-        // Monitor every 5 seconds
+        console.log('\n📊 Starting service monitoring (10 second intervals)...');
         this.monitoringInterval = setInterval(() => {
             this.monitorServices();
-        }, 5000);
-
-        // Initial monitoring
-        setTimeout(() => this.monitorServices(), 2000);
+        }, 10000);
     }
 
     async monitorServices() {
-        // Check process status
-        await this.checkProcessStatus();
-        
-        // Check service responsiveness
         await this.checkServiceResponsiveness();
-    }
-
-    async checkProcessStatus() {
-        for (const service of this.services) {
-            // Skip checking for services that were already running
-            if (service.alreadyRunning) continue;
-
-            if (service.process) {
-                try {
-                    // Check if process is still alive
-                    process.kill(service.process.pid, 0);
-                    // Only update status if it's not already responding
-                    if (service.status !== 'responding') {
-                        service.status = 'running';
-                    }
-                } catch (e) {
-                    service.status = 'crashed';
-                }
-            }
-        }
     }
 
     async checkServiceResponsiveness() {
@@ -315,14 +376,18 @@ class AIDashboard {
 
     async checkServiceResponse(service) {
         return new Promise((resolve) => {
+            if (service.status === 'stopped' || service.status === 'failed') {
+                resolve();
+                return;
+            }
+
             const startTime = Date.now();
-            
             const req = http.request({
                 hostname: 'localhost',
                 port: service.port,
                 path: '/',
                 method: 'GET',
-                timeout: 5000  // Increased timeout for slower services
+                timeout: 5000
             }, (res) => {
                 service.responseTime = Date.now() - startTime;
                 service.status = 'responding';
@@ -332,21 +397,20 @@ class AIDashboard {
 
             req.on('error', () => {
                 service.responseTime = null;
-                if (service.status === 'running' || service.status === 'starting') {
-                    service.status = 'starting';
-                } else if (service.alreadyRunning) {
-                    // If it was marked as already running but now not responding
+                if (service.alreadyRunning) {
                     service.status = 'unresponsive';
+                } else if (service.status === 'running' || service.status === 'starting') {
+                    service.status = 'starting';
                 }
                 resolve();
             });
 
             req.on('timeout', () => {
                 service.responseTime = null;
-                if (service.status === 'running' || service.status === 'starting') {
-                    service.status = 'starting';
-                } else if (service.alreadyRunning) {
+                if (service.alreadyRunning) {
                     service.status = 'unresponsive';
+                } else if (service.status === 'running' || service.status === 'starting') {
+                    service.status = 'starting';
                 }
                 req.destroy();
                 resolve();
@@ -359,92 +423,228 @@ class AIDashboard {
     async startAllServices() {
         console.log('\n🚀 Starting AI Services...\n');
 
-        const promises = this.services
-            .filter(service => !service.alreadyRunning) // Only start services not already running
-            .map(service => this.startService(service));
+        const servicesToStart = this.services.filter(service => !service.alreadyRunning);
         
-        await Promise.all(promises);
+        if (servicesToStart.length === 0) {
+            console.log('✅ All services are already running!');
+            return;
+        }
 
-        const startedCount = this.services.filter(s => !s.alreadyRunning).length;
-        const alreadyRunningCount = this.services.filter(s => s.alreadyRunning).length;
-        
-        console.log(`\n✅ ${startedCount} services launched, ${alreadyRunningCount} already running!`);
-        console.log('   Some services may take 30-60 seconds to fully start...\n');
+        // Start services sequentially
+        for (const service of servicesToStart) {
+            await this.startService(service);
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Longer delay for streamlit
+        }
+
+        console.log(`\n✅ ${servicesToStart.length} services launched!`);
     }
 
     async startService(service) {
-        // Skip if already running
-        if (service.alreadyRunning) {
-            return Promise.resolve();
-        }
-
         return new Promise((resolve) => {
             const logStream = fs.createWriteStream(path.join(this.logDir, service.logFile), { flags: 'a' });
             
-            console.log(`   🚀 Starting ${service.name} on port ${service.port}...`);
+            console.log(`\n   🚀 Starting ${service.name}...`);
 
             service.startTime = new Date();
             service.status = 'starting';
 
-            // Use cmd.exe to handle directory changes and complex commands
-            service.process = spawn('cmd.exe', ['/c', service.command], {
-                stdio: ['ignore', 'pipe', 'pipe'],
-                detached: true
-            });
-
-            service.pid = service.process.pid;
-
-            service.process.stdout.on('data', (data) => {
-                const timestamp = new Date().toLocaleTimeString();
-                logStream.write(`[${timestamp} STDOUT] ${data}`);
-                
-                // Check for common success patterns in logs
-                const output = data.toString().toLowerCase();
-                if (output.includes('started') || output.includes('ready') || output.includes('listening') || output.includes('running')) {
-                    service.status = 'running';
-                }
-                
-                // Check for error patterns
-                if (output.includes('error') || output.includes('failed') || output.includes('exception')) {
-                    console.log(`   ⚠️  ${service.name} reported an error in logs`);
-                }
-            });
-
-            service.process.stderr.on('data', (data) => {
-                const timestamp = new Date().toLocaleTimeString();
-                logStream.write(`[${timestamp} STDERR] ${data}`);
-                
-                // Check if this is a fatal error
-                const errorOutput = data.toString().toLowerCase();
-                if (errorOutput.includes('error') || errorOutput.includes('failed to start') || errorOutput.includes('cannot start')) {
-                    service.status = 'failed';
-                    console.log(`   ❌ ${service.name} failed: ${data.toString().trim()}`);
-                }
-            });
-
-            service.process.on('error', (error) => {
-                console.log(`   ❌ ${service.name} failed to start: ${error.message}`);
-                logStream.write(`[ERROR] ${error.message}\n`);
+            // Verify working directory exists
+            if (!fs.existsSync(service.workingDir)) {
+                console.log(`   ❌ ${service.name}: Working directory not found: ${service.workingDir}`);
                 service.status = 'failed';
-            });
-
-            service.process.on('exit', (code) => {
-                service.status = code === 0 ? 'stopped' : 'crashed';
-                logStream.write(`[EXIT] Process exited with code ${code}\n`);
-                if (code !== 0) {
-                    console.log(`   💥 ${service.name} crashed with exit code ${code}`);
-                }
-            });
-
-            service.process.on('spawn', () => {
-                console.log(`   ✅ ${service.name} process started (PID: ${service.pid})`);
-                service.status = 'starting';
                 resolve();
-            });
+                return;
+            }
 
-            // Unref to allow main process to exit independently
-            service.process.unref();
+            // Verify main file exists for Python/Streamlit services
+            if (service.type === 'python' || service.type === 'streamlit') {
+                let mainFile;
+                if (service.type === 'streamlit') {
+                    const runIndex = service.args.indexOf('run');
+                    mainFile = runIndex !== -1 && service.args[runIndex + 1] ? 
+                        path.join(service.workingDir, service.args[runIndex + 1]) :
+                        null;
+                } else {
+                    mainFile = service.args.length > 0 ? 
+                        path.join(service.workingDir, service.args[0]) :
+                        null;
+                }
+                
+                if (!mainFile || !fs.existsSync(mainFile)) {
+                    console.log(`   ❌ ${service.name}: Main file not found: ${service.args.join(' ')}`);
+                    console.log(`   💡 Check if the project is properly downloaded`);
+                    service.status = 'failed';
+                    resolve();
+                    return;
+                }
+            }
+
+            try {
+                console.log(`   📁 Directory: ${service.workingDir}`);
+                console.log(`   ⚡ Command: ${service.command} ${service.args.join(' ')}`);
+
+                service.process = spawn(service.command, service.args, {
+                    cwd: service.workingDir,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    shell: false,
+                    detached: true
+                });
+
+                service.pid = service.process.pid;
+
+                let hasOutput = false;
+                let hasStarted = false;
+
+                service.process.stdout.on('data', (data) => {
+                    hasOutput = true;
+                    const output = data.toString();
+                    logStream.write(`[STDOUT] ${output}`);
+                    
+                    // Better detection of service readiness
+                    if (output.toLowerCase().includes('started') || 
+                        output.toLowerCase().includes('ready') || 
+                        output.toLowerCase().includes('listening') ||
+                        output.toLowerCase().includes('running on') ||
+                        output.includes('http://') ||
+                        output.includes('port') ||
+                        output.includes('You can now view your Streamlit app') ||
+                        output.includes('Network URL:')) {
+                        if (!hasStarted) {
+                            service.status = 'running';
+                            console.log(`   ✅ ${service.name}: Service reported ready`);
+                            hasStarted = true;
+                        }
+                    }
+                    
+                    // Show informative output for streamlit
+                    if (service.type === 'streamlit' && output.includes('Network URL:')) {
+                        console.log(`   🌐 ${service.name}: ${output.trim()}`);
+                    }
+                });
+
+                service.process.stderr.on('data', (data) => {
+                    hasOutput = true;
+                    const errorMsg = data.toString();
+                    logStream.write(`[STDERR] ${errorMsg}`);
+                    
+                    // Don't treat streamlit warnings as errors
+                    if ((service.name === 'OpenManus' || service.name === 'OpenSora') && 
+                        (errorMsg.includes('Thread') || errorMsg.includes('ScriptRunContext'))) {
+                        console.log(`   ⚠️  ${service.name}: Streamlit warning (normal)`);
+                    } else {
+                        this.analyzeServiceError(service, errorMsg);
+                    }
+                });
+
+                service.process.on('error', (error) => {
+                    console.log(`   ❌ ${service.name}: Spawn error - ${error.message}`);
+                    logStream.write(`[SPAWN ERROR] ${error.message}\n`);
+                    service.status = 'failed';
+                    this.provideServiceGuidance(service);
+                });
+
+                service.process.on('exit', (code, signal) => {
+                    if (!hasOutput) {
+                        console.log(`   ❌ ${service.name}: No output - command may not exist`);
+                    }
+                    
+                    if (code !== 0 && !hasStarted) {
+                        service.status = 'crashed';
+                        console.log(`   💥 ${service.name}: Crashed with code ${code}`);
+                        logStream.write(`[CRASH] Exit code: ${code}, Signal: ${signal}\n`);
+                        this.provideServiceGuidance(service);
+                    } else if (hasStarted) {
+                        // Service was running but exited
+                        service.status = 'stopped';
+                        console.log(`   ⚠️  ${service.name}: Service stopped`);
+                        logStream.write(`[STOPPED] Exit code: ${code}\n`);
+                    } else {
+                        service.status = 'stopped';
+                        logStream.write(`[STOPPED] Normal exit\n`);
+                    }
+                });
+
+                service.process.on('spawn', () => {
+                    console.log(`   ⚡ ${service.name}: Process started (PID: ${service.pid})`);
+                    // Set longer timeout for streamlit services
+                    const timeout = service.type === 'streamlit' ? 10000 : 5000;
+                    setTimeout(() => {
+                        if (service.status === 'starting' && !hasOutput) {
+                            console.log(`   ❌ ${service.name}: No output after ${timeout/1000}s - command may be failing`);
+                            service.status = 'failed';
+                        }
+                    }, timeout);
+                });
+
+                service.process.unref();
+                resolve();
+
+            } catch (error) {
+                console.log(`   💥 ${service.name}: Unexpected error - ${error.message}`);
+                service.status = 'failed';
+                resolve();
+            }
         });
+    }
+
+    analyzeServiceError(service, errorMsg) {
+        const msg = errorMsg.toLowerCase();
+        console.log(`   ❌ ${service.name}: ${errorMsg.trim()}`);
+
+        if (msg.includes('modulenotfounderror') || msg.includes('no module named')) {
+            const moduleMatch = errorMsg.match(/No module named '([^']+)'/);
+            if (moduleMatch) {
+                console.log(`   💡 Install missing module: pip install ${moduleMatch[1]}`);
+                console.log(`   💡 Or install all dependencies: pip install -r requirements.txt`);
+            } else {
+                console.log(`   💡 Missing Python dependencies. Run: pip install -r requirements.txt`);
+            }
+        } else if (msg.includes('streamlit') && msg.includes('not found')) {
+            console.log(`   💡 Streamlit not installed. Run: pip install streamlit`);
+        } else if (msg.includes('attempted relative import with no known parent package')) {
+            console.log(`   💡 Relative import issue. Try running as module or check file structure`);
+        } else if (msg.includes('address already in use')) {
+            console.log(`   💡 Port ${service.port} is busy. Kill process or change port`);
+        } else if (msg.includes('file not found') || msg.includes('cannot find the path') || msg.includes('no such file')) {
+            console.log(`   💡 File not found: ${service.args.join(' ')}`);
+            console.log(`   💡 Check if the project is properly downloaded`);
+        } else if (msg.includes('python') && msg.includes('not found')) {
+            console.log(`   💡 Python not installed or not in PATH`);
+        } else if (msg.includes('java') && msg.includes('not found')) {
+            console.log(`   💡 Java not installed or not in PATH`);
+        } else if (msg.includes('error') || msg.includes('exception')) {
+            console.log(`   📖 Check ${service.logFile} for detailed error`);
+        }
+    }
+
+    provideServiceGuidance(service) {
+        console.log(`\n   🔧 ${service.name} TROUBLESHOOTING:`);
+        
+        switch(service.name) {
+            case 'Nutch':
+                console.log(`   • Service is actually running despite warnings`);
+                console.log(`   • Check status: http://localhost:${service.port}`);
+                break;
+            case 'MeloTTS':
+                console.log(`   • Using test_melotts.py which should work`);
+                console.log(`   • Install dependencies: pip install -r requirements.txt`);
+                console.log(`   • Run manually: cd "${service.workingDir}" && python test_melotts.py`);
+                break;
+            case 'OpenManus':
+            case 'OpenSora':
+                console.log(`   • Now using streamlit run command`);
+                console.log(`   • Install streamlit: pip install streamlit`);
+                console.log(`   • Install dependencies: pip install -r requirements.txt`);
+                console.log(`   • Run manually: cd "${service.workingDir}" && streamlit run ${service.args[1]} --server.port ${service.port}`);
+                break;
+            case 'tg-webui':
+                console.log(`   • Using server.py with --api flag`);
+                console.log(`   • Install dependencies: pip install -r requirements.txt`);
+                console.log(`   • Run manually: cd "${service.workingDir}" && python server.py --api`);
+                break;
+        }
+        
+        console.log(`   • View full logs: Press [L] then choose ${service.name}`);
     }
 
     createVoidConfig() {
@@ -458,67 +658,16 @@ class AIDashboard {
 `;
 
         fs.writeFileSync(this.voidConfig, yaml);
-        console.log('📁 Void AI configuration created: void_local.yaml');
-    }
-
-    launchVoidAI() {
-        if (!this.voidFound) {
-            console.log('\n❌ Void AI is not installed.');
-            console.log('   Press [I] for installation instructions');
-            return;
-        }
-
-        console.log(`\n🎯 Launching Void AI...`);
-        
-        try {
-            // Use the correct spawn method based on the path type
-            if (this.voidPath.includes(path.sep)) {
-                // Full path - spawn directly
-                this.voidProcess = spawn(this.voidPath, ['--config', this.voidConfig], {
-                    stdio: 'inherit',
-                    detached: false
-                });
-            } else {
-                // Command in PATH - use shell
-                this.voidProcess = spawn(this.voidPath, ['--config', this.voidConfig], {
-                    shell: true,
-                    stdio: 'inherit',
-                    detached: false
-                });
-            }
-
-            this.voidProcess.on('error', (error) => {
-                console.log(`❌ Failed to launch Void AI: ${error.message}`);
-                console.log('   Try running manually: void --config void_local.yaml');
-                this.voidProcess = null;
-            });
-
-            this.voidProcess.on('exit', (code) => {
-                if (code !== 0) {
-                    console.log(`❌ Void AI exited with error code ${code}`);
-                    console.log('   Try running manually: void --config void_local.yaml');
-                } else {
-                    console.log('✅ Void AI closed normally');
-                }
-                this.voidProcess = null;
-            });
-
-            console.log('✅ Void AI launch command sent!');
-        } catch (error) {
-            console.log(`❌ Error launching Void AI: ${error.message}`);
-            console.log('   Try running manually: void --config void_local.yaml');
-        }
+        console.log('📁 Void AI configuration created');
     }
 
     startDashboardUpdates() {
-        // Update dashboard every 3 seconds
         this.dashboardUpdateInterval = setInterval(() => {
             this.updateDashboard();
         }, 3000);
     }
 
     updateDashboard() {
-        // Clear previous dashboard (20 lines)
         process.stdout.write('\x1B[20A\x1B[0J');
         
         console.log('╔══════════════════════════════════════════════════════════════════════════════╗');
@@ -535,47 +684,39 @@ class AIDashboard {
         });
 
         console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
-        const voidStatus = this.voidProcess ? '🟢 RUNNING' : (this.voidFound ? '⚪ READY' : '🔴 NOT INSTALLED');
+        
+        let voidStatus = '🔴 NOT INSTALLED';
+        if (this.voidFound) {
+            if (this.voidAlreadyRunning) {
+                voidStatus = '🟢 EXTERNAL';
+            } else if (this.voidProcess) {
+                voidStatus = '🟢 RUNNING';
+            } else {
+                voidStatus = '⚪ READY';
+            }
+        }
+        
         console.log(`║ Void AI Status: ${voidStatus}${' '.repeat(55)}║`);
         console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
-        
-        if (this.voidFound) {
-            console.log('║ [V] Launch Void AI  [R] Restart Services  [L] View Logs  [T] Test All    ║');
-        } else {
-            console.log('║ [I] Install Guide    [R] Restart Services  [L] View Logs  [T] Test All    ║');
-        }
+        console.log('║ [V] Launch Void AI  [R] Restart Services  [L] View Logs  [D] Diagnostics    ║');
         console.log('║ [S] Detailed Status  [1-6] Restart Individual  [Q] Quit & Shutdown         ║');
         console.log('╚══════════════════════════════════════════════════════════════════════════════╝');
     }
 
     getStatusIcon(status) {
         const icons = {
-            'running': '🟢',
-            'responding': '✅',
-            'starting': '🟡',
-            'slow': '🟠',
-            'stopped': '⚪',
-            'crashed': '🔴',
-            'failed': '❌',
-            'unresponsive': '🟠'
+            'running': '🟢', 'responding': '✅', 'starting': '🟡', 'slow': '🟠',
+            'stopped': '⚪', 'crashed': '🔴', 'failed': '❌', 'unresponsive': '🟠'
         };
         return icons[status] || '❓';
     }
 
     getStatusDisplay(status, alreadyRunning) {
-        if (alreadyRunning && status === 'responding') {
-            return 'EXTERNAL';
-        }
-        
+        if (alreadyRunning && status === 'responding') return 'EXTERNAL';
         const displays = {
-            'running': 'RUNNING',
-            'responding': 'HEALTHY',
-            'starting': 'STARTING',
-            'slow': 'SLOW',
-            'stopped': 'STOPPED',
-            'crashed': 'CRASHED',
-            'failed': 'FAILED',
-            'unresponsive': 'NO RESPONSE'
+            'running': 'RUNNING', 'responding': 'HEALTHY', 'starting': 'STARTING',
+            'slow': 'SLOW', 'stopped': 'STOPPED', 'crashed': 'CRASHED',
+            'failed': 'FAILED', 'unresponsive': 'NO RESPONSE'
         };
         return displays[status] || status.toUpperCase();
     }
@@ -596,34 +737,13 @@ class AIDashboard {
                 this.shutdown();
             } else {
                 const keyName = key.name ? key.name.toLowerCase() : str.toLowerCase();
-                
                 switch (keyName) {
-                    case 'q':
-                        console.log('\n🛑 Shutting down all services...');
-                        this.shutdown();
-                        break;
-                    case 's':
-                        this.showDetailedStatus();
-                        break;
-                    case 'l':
-                        this.showLogMenu();
-                        break;
-                    case 'v':
-                        if (this.voidFound) {
-                            this.launchVoidAI();
-                        }
-                        break;
-                    case 'i':
-                        this.showVoidInstallationGuide();
-                        console.log('\nPress any key to return to dashboard...');
-                        process.stdin.once('keypress', () => this.showDashboard());
-                        break;
-                    case 'r':
-                        this.showRestartMenu();
-                        break;
-                    case 't':
-                        this.runComprehensiveTests();
-                        break;
+                    case 'q': this.shutdown(); break;
+                    case 's': this.showDetailedStatus(); break;
+                    case 'l': this.showLogMenu(); break;
+                    case 'v': this.launchVoidAI(); break;
+                    case 'd': this.runComprehensiveDiagnostics(); break;
+                    case 'r': this.showRestartMenu(); break;
                     case '1': case '2': case '3': case '4': case '5': case '6':
                         const index = parseInt(keyName) - 1;
                         if (index >= 0 && index < this.services.length) {
@@ -635,47 +755,218 @@ class AIDashboard {
         });
     }
 
-    // ... rest of the methods (showDetailedStatus, showRestartMenu, etc.) remain the same
-    // They're omitted for brevity but should be included in the full file
-
-    shutdown() {
-        console.log('\n🛑 Shutting down monitoring and services...');
+    showDetailedStatus() {
+        clearInterval(this.dashboardUpdateInterval);
         
-        // Stop intervals
-        if (this.monitoringInterval) clearInterval(this.monitoringInterval);
-        if (this.dashboardUpdateInterval) clearInterval(this.dashboardUpdateInterval);
+        console.log('\n\n📊 DETAILED SERVICE STATUS');
+        console.log('═'.repeat(70));
         
-        // Kill Void AI
-        if (this.voidProcess) {
-            try {
-                this.voidProcess.kill();
-            } catch (e) {
-                // Ignore
-            }
-        }
-        
-        // Only kill services that we started (not external ones)
         this.services.forEach(service => {
-            if (service.process && !service.alreadyRunning) {
-                try {
-                    process.kill(-service.process.pid);
-                } catch (e) {
-                    // Process might already be dead
-                }
+            const uptime = service.startTime ? 
+                Math.round((Date.now() - service.startTime) / 1000) + 's' : 'N/A';
+            
+            console.log(`\n${this.getStatusIcon(service.status)} ${service.name}:`);
+            console.log(`   Status: ${service.status}`);
+            console.log(`   Port: ${service.port} | PID: ${service.pid || 'N/A'} | Uptime: ${uptime}`);
+            console.log(`   Directory: ${service.workingDir}`);
+            console.log(`   Command: ${service.command} ${service.args.join(' ')}`);
+            
+            if (service.status === 'crashed' || service.status === 'failed') {
+                console.log(`   💡 Test manually: cd "${service.workingDir}" && ${service.command} ${service.args.join(' ')}`);
             }
         });
 
-        console.log('✅ Dashboard services stopped. External services may still be running.');
-        console.log('   Goodbye! 👋');
-        process.exit(0);
+        console.log('\nPress any key to continue...');
+        process.stdin.once('keypress', () => {
+            this.startDashboardUpdates();
+            this.showDashboard();
+        });
     }
-}
 
-// Handle CTRL+C gracefully
-process.on('SIGINT', () => {
-    console.log('\n🛑 Received shutdown signal...');
-    new AIDashboard().shutdown();
-});
+    showLogMenu() {
+        clearInterval(this.dashboardUpdateInterval);
+        
+        console.log('\n\n📋 SERVICE LOGS');
+        console.log('═'.repeat(60));
+        this.services.forEach((service, index) => {
+            const statusIcon = this.getStatusIcon(service.status);
+            console.log(`  ${index + 1}. ${statusIcon} ${service.name}`);
+        });
+        console.log('  0. Back to dashboard');
+        
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
 
-// Start the dashboard
-new AIDashboard().start().catch(console.error);
+        rl.question('\nSelect log to view: ', (choice) => {
+            rl.close();
+            const index = parseInt(choice) - 1;
+            if (index >= 0 && index < this.services.length) {
+                this.viewLog(this.services[index]);
+            } else {
+                this.startDashboardUpdates();
+                this.showDashboard();
+            }
+        });
+    }
+
+    viewLog(service) {
+        const logPath = path.join(this.logDir, service.logFile);
+        if (fs.existsSync(logPath)) {
+            console.log(`\n📄 ${service.name} LOG - Last 20 lines`);
+            console.log('═'.repeat(80));
+            
+            const logContent = fs.readFileSync(logPath, 'utf8');
+            const lines = logContent.split('\n').slice(-20);
+            
+            if (lines.length === 0 || (lines.length === 1 && lines[0].trim() === '')) {
+                console.log('   (Log file is empty - service crashed immediately)');
+            } else {
+                lines.forEach(line => {
+                    if (line.trim()) {
+                        if (line.toLowerCase().includes('error')) console.log(`🔴 ${line}`);
+                        else if (line.toLowerCase().includes('warn')) console.log(`🟡 ${line}`);
+                        else if (line.toLowerCase().includes('start') || line.toLowerCase().includes('ready')) console.log(`🟢 ${line}`);
+                        else console.log(`   ${line}`);
+                    }
+                });
+            }
+            
+            console.log('═'.repeat(80));
+        } else {
+            console.log(`\n❌ No log file found for ${service.name}`);
+            console.log('   Service crashed before creating any output');
+        }
+        
+        console.log('\nPress any key to return...');
+        process.stdin.once('keypress', () => {
+            this.startDashboardUpdates();
+            this.showDashboard();
+        });
+    }
+
+    showRestartMenu() {
+        clearInterval(this.dashboardUpdateInterval);
+        
+        console.log('\n\n🔄 RESTART SERVICES');
+        console.log('═'.repeat(60));
+        this.services.forEach((service, index) => {
+            const statusIcon = this.getStatusIcon(service.status);
+            console.log(`  ${index + 1}. ${statusIcon} ${service.name} (${service.status})`);
+        });
+        console.log('  A. Restart ALL services');
+        console.log('  B. Back to dashboard');
+        
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+        rl.question('\nSelect option: ', (choice) => {
+            rl.close();
+            const upperChoice = choice.toUpperCase();
+            if (upperChoice === 'B') {
+                this.startDashboardUpdates();
+                this.showDashboard();
+            } else if (upperChoice === 'A') {
+                this.restartAllServices();
+            } else {
+                const index = parseInt(choice) - 1;
+                if (index >= 0 && index < this.services.length) {
+                    this.restartService(this.services[index]);
+                }
+            }
+            setTimeout(() => {
+                this.startDashboardUpdates();
+                this.showDashboard();
+            }, 3000);
+        });
+    }
+
+    async restartService(service) {
+        console.log(`\n🔄 Restarting ${service.name}...`);
+        
+        if (service.process) {
+            try {
+                process.kill(service.process.pid);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (e) {}
+        }
+        
+        await this.startService(service);
+    }
+
+    async restartAllServices() {
+        console.log('\n🔄 Restarting ALL services...');
+        
+        for (const service of this.services) {
+            if (service.alreadyRunning) continue;
+            await this.restartService(service);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    }
+
+    launchVoidAI() {
+        if (!this.voidFound) {
+            console.log('\n❌ Void AI is not installed.');
+            return;
+        }
+
+        if (this.voidAlreadyRunning) {
+            console.log('\n✅ Void AI is already running!');
+            return;
+        }
+
+        console.log(`\n🎯 Launching Void AI...`);
+        
+        try {
+            if (this.voidPath.includes(path.sep)) {
+                this.voidProcess = spawn(this.voidPath, ['--config', this.voidConfig], {
+                    stdio: 'ignore',
+                    detached: true
+                });
+            } else {
+                this.voidProcess = spawn(this.voidPath, ['--config', this.voidConfig], {
+                    shell: true,
+                    stdio: 'ignore',
+                    detached: true
+                });
+            }
+
+            this.voidProcess.on('error', (error) => {
+                console.log(`❌ Failed to launch Void AI: ${error.message}`);
+            });
+
+            console.log('✅ Void AI launched!');
+            
+        } catch (error) {
+            console.log(`❌ Error launching Void AI: ${error.message}`);
+        }
+    }
+
+    runComprehensiveDiagnostics() {
+        console.log('\n🔧 COMPREHENSIVE DIAGNOSTICS');
+        console.log('═'.repeat(70));
+        
+        console.log('\n📋 CURRENT SERVICE STATUS:');
+        this.services.forEach(service => {
+            console.log(`   ${this.getStatusIcon(service.status)} ${service.name}: ${service.status}`);
+        });
+
+        console.log('\n💡 QUICK FIXES:');
+        console.log('1. For Python services, install dependencies: pip install -r requirements.txt');
+        console.log('2. Check individual logs for specific error messages');
+        console.log('3. Try running services manually to see exact errors');
+        
+        console.log('\nPress any key to continue...');
+        process.stdin.once('keypress', () => this.showDashboard());
+    }
+
+    shutdown() {
+        console.log('\n🛑 Shutting down...');
+        clearInterval(this.monitoringInterval);
+        clearInterval(this.dashboardUpdateInterval);
+        
+        if (this.voidProcess && !this.voidAlreadyRunning) {
+            try { this.voidProcess.kill(); }
