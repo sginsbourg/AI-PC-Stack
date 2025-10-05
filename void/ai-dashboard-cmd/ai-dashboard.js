@@ -124,11 +124,14 @@ class AIDashboard {
         this.prevRecv = 0;
         this.prevTime = Date.now();
         this.systemMetrics = {
-            cpu: 'N/A',
+            cpu: '0%',
             ram: 'N/A',
-            disk: 'N/A',
-            net: 'N/A'
+            disk: 'N/A'
         };
+        
+        // CPU monitoring state
+        this.cpuUsage = 0;
+        this.cpuCores = os.cpus().length;
         
         // Calculate total width based on column widths
         this.columnWidths = {
@@ -163,6 +166,9 @@ class AIDashboard {
         this.setupConsole();
         this.checkVoidAI();
         this.generateVoidConfig();
+        
+        // Initialize CPU monitoring
+        this.initCpuMonitoring();
     }
 
     validateServices() {
@@ -192,6 +198,48 @@ class AIDashboard {
         process.on('SIGINT', () => {
             this.shutdown();
         });
+    }
+
+    initCpuMonitoring() {
+        // Get initial CPU stats
+        this.prevCpuInfo = this.getCpuInfo();
+        
+        // Update CPU usage every second
+        setInterval(() => {
+            this.updateCpuUsage();
+        }, 1000);
+    }
+
+    getCpuInfo() {
+        const cpus = os.cpus();
+        let totalIdle = 0, totalTick = 0;
+        
+        cpus.forEach(cpu => {
+            for (let type in cpu.times) {
+                totalTick += cpu.times[type];
+            }
+            totalIdle += cpu.times.idle;
+        });
+        
+        return {
+            totalIdle,
+            totalTick
+        };
+    }
+
+    updateCpuUsage() {
+        const currentCpuInfo = this.getCpuInfo();
+        
+        const idleDifference = currentCpuInfo.totalIdle - this.prevCpuInfo.totalIdle;
+        const totalDifference = currentCpuInfo.totalTick - this.prevCpuInfo.totalTick;
+        
+        const usage = 100 - (100 * idleDifference / totalDifference);
+        this.cpuUsage = Math.round(usage * 100) / 100; // Round to 2 decimal places
+        
+        // Update the system metrics
+        this.systemMetrics.cpu = `${this.cpuUsage}%`;
+        
+        this.prevCpuInfo = currentCpuInfo;
     }
 
     checkVoidAI() {
@@ -294,48 +342,34 @@ class AIDashboard {
             this.systemMetrics.ram = 'N/A';
         }
 
-        try {
-            // CPU
-            exec('wmic cpu get loadpercentage /value', (err, stdout) => {
-                if (!err && stdout) {
-                    const lines = stdout.trim().split('\n');
-                    for (let line of lines) {
-                        if (line.includes('LoadPercentage')) {
-                            const percent = line.match(/(\d+)/);
-                            if (percent) {
-                                this.systemMetrics.cpu = `${percent[1]}% Load`;
-                                break;
-                            }
-                        }
-                    }
-                }
-            });
-        } catch (error) {
-            this.systemMetrics.cpu = 'N/A';
-        }
+        // CPU is now updated in real-time via updateCpuUsage()
 
         try {
-            // Disk
+            // Disk - More reliable method using exec
             exec('wmic logicaldisk where DeviceID="C:" get Size,FreeSpace /value', (err, stdout) => {
                 if (!err && stdout) {
-                    const lines = stdout.trim().split('\n');
+                    const lines = stdout.split('\r\n');
                     let size = 0, free = 0;
+                    
                     for (let line of lines) {
-                        if (line.includes('Size=')) {
-                            const match = line.match(/Size=(\d+)/);
-                            if (match) size = parseInt(match[1]);
-                        } else if (line.includes('FreeSpace=')) {
-                            const match = line.match(/FreeSpace=(\d+)/);
-                            if (match) free = parseInt(match[1]);
+                        if (line.startsWith('Size=')) {
+                            size = parseInt(line.split('=')[1]);
+                        } else if (line.startsWith('FreeSpace=')) {
+                            free = parseInt(line.split('=')[1]);
                         }
                     }
-                    if (size > 0) {
+                    
+                    if (size > 0 && free > 0) {
                         const used = size - free;
                         const diskPercent = Math.round((used / size) * 100);
                         const usedGB = (used / 1024 / 1024 / 1024).toFixed(1);
                         const totalGB = (size / 1024 / 1024 / 1024).toFixed(1);
                         this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
+                    } else {
+                        this.systemMetrics.disk = 'N/A';
                     }
+                } else {
+                    this.systemMetrics.disk = 'N/A';
                 }
             });
         } catch (error) {
@@ -433,7 +467,7 @@ class AIDashboard {
         console.log(controls);
         console.log(footerLine);
         
-        const tip = `${this.yellow}💡 TIP:${this.reset} Dashboard width: ${this.innerWidth} chars | Services: ${this.services.length} | Auto-refresh: 2s`;
+        const tip = `${this.yellow}💡 TIP:${this.reset} Dashboard width: ${this.innerWidth} chars | Services: ${this.services.length} | Auto-refresh: 2s | CPU Cores: ${this.cpuCores}`;
         console.log(tip);
     }
 
@@ -681,7 +715,7 @@ class AIDashboard {
 
     async start() {
         console.log(`${this.green}Initializing Enhanced AI Services Dashboard...${this.reset}`);
-        console.log(`${this.blue}Dashboard Width: ${this.innerWidth} characters${this.reset}`);
+        console.log(`${this.blue}Dashboard Width: ${this.innerWidth} characters | CPU Cores: ${this.cpuCores}${this.reset}`);
         
         this.monitoringInterval = setInterval(() => {
             this.monitorServices();
@@ -695,6 +729,7 @@ class AIDashboard {
         this.displayDashboard();
         
         console.log(`\n${this.green}Enhanced dashboard started successfully!${this.reset}`);
+        console.log(`${this.cyan}Real-time CPU monitoring active${this.reset}`);
     }
 
     async shutdown() {
