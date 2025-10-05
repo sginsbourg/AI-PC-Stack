@@ -10,7 +10,8 @@ class ServiceManager {
             {
                 name: 'Nutch',
                 port: 8899,
-                command: 'java',
+                // CRITICAL FIX: Absolute path to java.exe without quotes, and useShell: false below.
+                command: 'C:\\Program Files\\Java\\jdk-24\\bin\\java.exe', 
                 args: ['-cp', 'lib/*;conf', 'org.apache.nutch.service.NutchServer', '-port', '8899'],
                 workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'apache-nutch-1.21'),
                 logFile: 'nutch.log',
@@ -20,7 +21,10 @@ class ServiceManager {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'java'
+                type: 'java',
+                useShell: false, // <-- Bypasses Windows shell parsing for path with spaces
+                // FIX: Use a valid Nutch REST endpoint to prevent 404 errors on health checks
+                healthCheckPath: '/rest/server/version' 
             },
             {
                 name: 'Ollama',
@@ -35,7 +39,9 @@ class ServiceManager {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'executable'
+                type: 'executable',
+                useShell: true,
+                healthCheckPath: '/'
             },
             {
                 name: 'MeloTTS',
@@ -50,7 +56,9 @@ class ServiceManager {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'python'
+                type: 'python',
+                useShell: true,
+                healthCheckPath: '/'
             },
             {
                 name: 'OpenManus',
@@ -65,7 +73,9 @@ class ServiceManager {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'streamlit'
+                type: 'streamlit',
+                useShell: true,
+                healthCheckPath: '/'
             },
             {
                 name: 'OpenSora',
@@ -80,7 +90,9 @@ class ServiceManager {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'streamlit'
+                type: 'streamlit',
+                useShell: true,
+                healthCheckPath: '/'
             },
             {
                 name: 'tg-webui',
@@ -95,7 +107,9 @@ class ServiceManager {
                 startTime: null,
                 responseTime: null,
                 alreadyRunning: false,
-                type: 'python'
+                type: 'python',
+                useShell: true,
+                healthCheckPath: '/'
             }
         ];
 
@@ -257,14 +271,23 @@ class ServiceManager {
 
     async checkServiceRunning(service) {
         return new Promise((resolve) => {
+            // Use specific healthCheckPath or default to '/'
+            const checkPath = service.healthCheckPath || '/'; 
+
             const req = http.request({
                 hostname: 'localhost',
                 port: service.port,
-                path: '/',
+                path: checkPath,
                 method: 'GET',
-                timeout: 3000
+                // FIX: Increased timeout to 8000ms
+                timeout: 8000 
             }, (res) => {
-                resolve(true);
+                // Check for successful connection, regardless of application error code.
+                if (res.statusCode) {
+                    resolve(true);
+                } else {
+                    resolve(false);
+                }
                 req.destroy();
             });
 
@@ -294,19 +317,27 @@ class ServiceManager {
         if (this.monitoringInterval) clearInterval(this.monitoringInterval);
         this.monitoringInterval = setInterval(() => {
             this.services.forEach(service => this.checkHealth(service));
-            // CRITICAL: Push monitoring updates to the renderer
-            // This assumes mainWindow is available (which it is after app.whenReady)
-            // You may need to handle this via IPC in main.js if ServiceManager isn't directly exposed
-            // For now, assume a mechanism in main.js handles polling this and pushing.
         }, 2000);
     }
 
     checkHealth(service) {
         if (service.pid || service.alreadyRunning) {
             const startTime = Date.now();
-            http.get(`http://localhost:${service.port}`, { timeout: 1500 }, (res) => {
-                service.status = 'responding';
+            // FIX: Use specific healthCheckPath or default to '/'
+            const checkPath = service.healthCheckPath || '/'; 
+            
+            // FIX: Timeout is now 8000ms
+            http.get(`http://localhost:${service.port}${checkPath}`, { timeout: 8000 }, (res) => {
+                // FINAL FIX: Check HTTP status code for full success or just running status
+                if (res.statusCode >= 200 && res.statusCode < 400) {
+                    service.status = 'responding'; // Fully healthy API response
+                } else {
+                    // Service is alive (connected successfully), but returned non-2xx/3xx (e.g., 404).
+                    // Set to 'running' to display green status and avoid the false 'NO RESPONSE' error.
+                    service.status = 'running'; 
+                }
                 service.responseTime = Date.now() - startTime;
+                res.resume(); // Consume the response data
             }).on('error', (err) => {
                 if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') {
                     service.status = 'unresponsive';
@@ -340,11 +371,11 @@ class ServiceManager {
 
             const logStream = fs.createWriteStream(path.join(this.logDir, service.logFile), { flags: 'a' });
             
-            // CORRECTED: Removed the conflicting 'stdio' option
+            // FIX: Conditionally set shell based on the new service flag
             const child = spawn(service.command, service.args, {
                 cwd: service.workingDir,
                 detached: true,
-                shell: true
+                shell: service.useShell !== false 
             });
 
             service.process = child;

@@ -1,8 +1,8 @@
-// C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\void\ai-dashboard\ai-dashboard-gui\main.js
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const ServiceManager = require('./ServiceManager');
 
-const path = require('path'); // Ensure path is imported, as it provides path.delimiter
-
-// CRITICAL FIX: Ensure Java path is available for child processes
+// CRITICAL FIX: Ensure Java path is available for child processes (Safest way)
 const javaPath = 'C:\\Program Files\\Java\\jdk-24\\bin';
 
 // Use path.delimiter (which is ';' on Windows) and ensure PATH is a string
@@ -10,10 +10,6 @@ process.env.PATH = [process.env.PATH, javaPath]
     .filter(Boolean) // Filters out null/undefined entries
     .join(path.delimiter);
     
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
-const ServiceManager = require('./ServiceManager');
-
 let mainWindow;
 const serviceManager = new ServiceManager();
 
@@ -25,11 +21,8 @@ function createWindow() {
         minHeight: 600,
         title: 'AI Services Dashboard GUI',
         webPreferences: {
-            // IMPORTANT: Context isolation needs to be false or you need a preload script
-            // Based on your previous code, nodeIntegration is true, which usually requires 
-            // contextIsolation: false for simplicity.
             nodeIntegration: true,
-            contextIsolation: false // Assuming this is needed for your renderer to work
+            contextIsolation: false 
         }
     });
 
@@ -39,9 +32,8 @@ function createWindow() {
     serviceManager.start().then(() => {
         console.log('Service Manager initialized successfully.');
         
-        // *** CRITICAL FIX: Explicitly send initial data to the renderer ***
+        // CRITICAL FIX: Explicitly send initial data to the renderer (fixes "Loading..." hang)
         if (mainWindow) {
-            // Send the first official data package to the renderer
             mainWindow.webContents.send('service-data-update', serviceManager.getServiceData());
         }
         
