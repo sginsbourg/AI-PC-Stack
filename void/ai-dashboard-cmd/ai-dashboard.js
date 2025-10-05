@@ -130,19 +130,23 @@ class AIDashboard {
             net: 'N/A'
         };
         
-        this.innerWidth = 78;
+        // Increased horizontal length by 25% (from 80 to 100 characters)
+        this.innerWidth = 100;
         this.columnWidths = {
-            service: 12,
-            port: 8,
-            statusIcon: 8,
-            statusInfo: 15,
-            responseTime: 16,
-            lastCheck: 14
+            service: 16,      // Increased from 12
+            port: 10,         // Increased from 8
+            statusIcon: 10,   // Increased from 8
+            statusInfo: 20,   // Increased from 15
+            responseTime: 20, // Increased from 16
+            lastCheck: 18,    // Increased from 14
+            uptime: 16        // New column for uptime
         };
         this.red = '\x1b[31m';
         this.green = '\x1b[32m';
         this.yellow = '\x1b[33m';
         this.blue = '\x1b[34m';
+        this.cyan = '\x1b[36m';
+        this.magenta = '\x1b[35m';
         this.blinkGreen = '\x1b[32;5m';
         this.reset = '\x1b[0m';
         
@@ -178,7 +182,7 @@ class AIDashboard {
 
     setupConsole() {
         console.clear();
-        process.title = 'AI Services Dashboard';
+        process.title = 'AI Services Dashboard - Enhanced Wide Display';
         
         // Handle Ctrl+C gracefully
         process.on('SIGINT', () => {
@@ -206,31 +210,38 @@ class AIDashboard {
 
     getStatusIcon(status) {
         const icons = {
-            'running': '🟢',
-            'starting': '🟡',
-            'stopped': '⚪',
-            'crashed': '🔴',
-            'slow': '🟠'
+            'running': '🟢 RUNNING',
+            'starting': '🟡 STARTING',
+            'stopped': '⚪ STOPPED',
+            'crashed': '🔴 CRASHED',
+            'slow': '🟠 SLOW'
         };
-        return icons[status] || '⚪';
+        return icons[status] || '⚪ UNKNOWN';
+    }
+
+    getStatusColor(status) {
+        return status === 'running' ? this.green : 
+               status === 'starting' ? this.yellow :
+               status === 'crashed' ? this.red : 
+               status === 'slow' ? this.yellow : this.reset;
     }
 
     formatResponseTime(ms) {
-        if (ms === null) return 'N/A';
-        if (ms < 1000) return `${ms}ms`;
-        return `${(ms / 1000).toFixed(1)}s`;
+        if (ms === null) return 'N/A'.padEnd(8);
+        if (ms < 1000) return `${ms}ms`.padEnd(8);
+        return `${(ms / 1000).toFixed(1)}s`.padEnd(8);
     }
 
     formatUptime(startTime) {
-        if (!startTime) return 'N/A';
+        if (!startTime) return 'N/A'.padEnd(10);
         const uptime = Date.now() - startTime;
         const seconds = Math.floor(uptime / 1000);
         const minutes = Math.floor(seconds / 60);
         const hours = Math.floor(minutes / 60);
         
-        if (hours > 0) return `${hours}h ${minutes % 60}m`;
-        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-        return `${seconds}s`;
+        if (hours > 0) return `${hours}h${minutes % 60}m`.padEnd(10);
+        if (minutes > 0) return `${minutes}m${seconds % 60}s`.padEnd(10);
+        return `${seconds}s`.padEnd(10);
     }
 
     async checkServiceHealth(service) {
@@ -274,58 +285,113 @@ class AIDashboard {
             const freeMem = os.freemem() / 1024 / 1024 / 1024;
             const usedMem = totalMem - freeMem;
             const ramPercent = Math.round((usedMem / totalMem) * 100);
-            this.systemMetrics.ram = ramPercent + '%';
+            this.systemMetrics.ram = `${ramPercent}% (${usedMem.toFixed(1)}GB/${totalMem.toFixed(1)}GB)`;
         } catch (error) {
             this.systemMetrics.ram = 'N/A';
         }
 
-        // CPU (simplified for now)
-        this.systemMetrics.cpu = 'N/A';
-        
-        // Disk (simplified for now)
-        this.systemMetrics.disk = 'N/A';
+        try {
+            // CPU - More detailed info
+            exec('wmic cpu get loadpercentage /value', (err, stdout) => {
+                if (!err && stdout) {
+                    const lines = stdout.trim().split('\n');
+                    for (let line of lines) {
+                        if (line.includes('LoadPercentage')) {
+                            const percent = line.match(/(\d+)/);
+                            if (percent) {
+                                this.systemMetrics.cpu = `${percent[1]}% Load`;
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            this.systemMetrics.cpu = 'N/A';
+        }
+
+        try {
+            // Disk - More detailed info
+            exec('wmic logicaldisk where DeviceID="C:" get Size,FreeSpace /value', (err, stdout) => {
+                if (!err && stdout) {
+                    const lines = stdout.trim().split('\n');
+                    let size = 0, free = 0;
+                    for (let line of lines) {
+                        if (line.includes('Size=')) {
+                            const match = line.match(/Size=(\d+)/);
+                            if (match) size = parseInt(match[1]);
+                        } else if (line.includes('FreeSpace=')) {
+                            const match = line.match(/FreeSpace=(\d+)/);
+                            if (match) free = parseInt(match[1]);
+                        }
+                    }
+                    if (size > 0) {
+                        const used = size - free;
+                        const diskPercent = Math.round((used / size) * 100);
+                        const usedGB = (used / 1024 / 1024 / 1024).toFixed(1);
+                        const totalGB = (size / 1024 / 1024 / 1024).toFixed(1);
+                        this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
+                    }
+                }
+            });
+        } catch (error) {
+            this.systemMetrics.disk = 'N/A';
+        }
     }
 
     displayHeader() {
         console.clear();
-        console.log('='.repeat(80));
-        console.log(`${this.green}🚀 AI SERVICES DASHBOARD${this.reset}`.padEnd(40) + `${this.blue}System: ${this.systemMetrics.cpu} CPU | ${this.systemMetrics.ram} RAM | ${this.systemMetrics.disk} Disk${this.reset}`);
-        console.log('='.repeat(80));
+        console.log('='.repeat(this.innerWidth));
+        console.log(`${this.green}🚀 AI SERVICES DASHBOARD - ENHANCED WIDE DISPLAY ${this.reset}`.padEnd(60) + 
+                   `${this.cyan}SYSTEM METRICS${this.reset}`.padEnd(40));
+        console.log('='.repeat(this.innerWidth));
+        console.log(`${this.blue}CPU:${this.reset} ${this.systemMetrics.cpu}`.padEnd(30) +
+                   `${this.blue}RAM:${this.reset} ${this.systemMetrics.ram}`.padEnd(40) +
+                   `${this.blue}DISK:${this.reset} ${this.systemMetrics.disk}`.padEnd(30));
+        console.log('-'.repeat(this.innerWidth));
     }
 
     displayServices() {
-        console.log('\nSERVICE'.padEnd(this.columnWidths.service) + 
-                   'PORT'.padEnd(this.columnWidths.port) +
-                   'STATUS'.padEnd(this.columnWidths.statusIcon) +
-                   'INFO'.padEnd(this.columnWidths.statusInfo) +
-                   'RESPONSE'.padEnd(this.columnWidths.responseTime) +
-                   'LAST CHECK'.padEnd(this.columnWidths.lastCheck));
-        console.log('-'.repeat(80));
+        console.log(`\n${this.cyan}SERVICE${' '.repeat(this.columnWidths.service - 7)}` +
+                   `PORT${' '.repeat(this.columnWidths.port - 4)}` +
+                   `STATUS${' '.repeat(this.columnWidths.statusIcon - 6)}` +
+                   `PROCESS INFO${' '.repeat(this.columnWidths.statusInfo - 12)}` +
+                   `RESPONSE TIME${' '.repeat(this.columnWidths.responseTime - 13)}` +
+                   `LAST CHECK${' '.repeat(this.columnWidths.lastCheck - 10)}` +
+                   `UPTIME${this.reset}`);
+        
+        console.log('-'.repeat(this.innerWidth));
 
         this.services.forEach(service => {
-            const statusIcon = this.getStatusIcon(service.status);
-            const statusColor = service.status === 'running' ? this.green : 
-                              service.status === 'starting' ? this.yellow :
-                              service.status === 'crashed' ? this.red : 
-                              service.status === 'slow' ? this.yellow : this.reset;
-
+            const statusText = this.getStatusIcon(service.status);
+            const statusColor = this.getStatusColor(service.status);
             const info = service.pid ? `PID: ${service.pid}` : 'Not running';
             const response = this.formatResponseTime(service.responseTime);
             const lastCheck = service.lastCheck || 'Never';
+            const uptime = this.formatUptime(service.startTime);
 
             console.log(service.name.padEnd(this.columnWidths.service) +
                        service.port.toString().padEnd(this.columnWidths.port) +
-                       `${statusColor}${statusIcon}${this.reset}`.padEnd(this.columnWidths.statusIcon) +
+                       `${statusColor}${statusText}${this.reset}`.padEnd(this.columnWidths.statusIcon) +
                        info.padEnd(this.columnWidths.statusInfo) +
                        response.padEnd(this.columnWidths.responseTime) +
-                       lastCheck.padEnd(this.columnWidths.lastCheck));
+                       lastCheck.padEnd(this.columnWidths.lastCheck) +
+                       uptime.padEnd(this.columnWidths.uptime));
         });
     }
 
     displayFooter() {
-        console.log('\n' + '='.repeat(80));
-        console.log(`${this.green}CONTROLS:${this.reset} [V] Void AI | [S] Start All | [R] Restart All | [T] Stop All | [L] Logs | [Q] Quit`);
-        console.log('='.repeat(80));
+        console.log('\n' + '='.repeat(this.innerWidth));
+        console.log(`${this.green}CONTROLS:${this.reset} ` +
+                   `[${this.cyan}V${this.reset}] Void AI | ` +
+                   `[${this.green}S${this.reset}] Start All | ` +
+                   `[${this.yellow}R${this.reset}] Restart All | ` +
+                   `[${this.red}T${this.reset}] Stop All | ` +
+                   `[${this.magenta}L${this.reset}] Logs | ` +
+                   `[${this.blue}I${this.reset}] Service Info | ` +
+                   `[${this.red}Q${this.reset}] Quit`);
+        console.log('='.repeat(this.innerWidth));
+        console.log(`${this.yellow}💡 TIP:${this.reset} Dashboard width: ${this.innerWidth} chars | Services: ${this.services.length} | Auto-refresh: 2s`);
     }
 
     displayDashboard() {
@@ -344,6 +410,7 @@ class AIDashboard {
 
         try {
             const logStream = fs.createWriteStream(path.join(this.logDir, service.logFile), { flags: 'a' });
+            logStream.write(`\n=== Service started at ${new Date().toISOString()} ===\n`);
             
             const child = spawn(service.command, service.args, {
                 cwd: service.workingDir,
@@ -366,7 +433,7 @@ class AIDashboard {
                 service.process = null;
                 service.pid = null;
                 service.status = code === 0 ? 'stopped' : 'crashed';
-                logStream.write(`[INFO] Process exited with code ${code}\n`);
+                logStream.write(`[INFO] Process exited with code ${code} at ${new Date().toISOString()}\n`);
                 logStream.end();
             });
 
@@ -390,40 +457,72 @@ class AIDashboard {
             service.pid = null;
             service.status = 'stopped';
             service.startTime = null;
+            
+            // Log the stop
+            const logStream = fs.createWriteStream(path.join(this.logDir, service.logFile), { flags: 'a' });
+            logStream.write(`[INFO] Service stopped manually at ${new Date().toISOString()}\n`);
+            logStream.end();
+            
         } catch (error) {
             console.error(`Failed to stop ${service.name}:`, error.message);
         }
     }
 
     async startAllServices() {
-        console.log('\nStarting all services...');
+        console.log(`\n${this.green}Starting all ${this.services.length} services...${this.reset}`);
         for (const service of this.services) {
+            console.log(`${this.blue}Starting ${service.name}...${this.reset}`);
             await this.startService(service);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Stagger starts
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Stagger starts
         }
+        console.log(`${this.green}All services start initiated!${this.reset}`);
     }
 
     async stopAllServices() {
-        console.log('\nStopping all services...');
+        console.log(`\n${this.red}Stopping all ${this.services.length} services...${this.reset}`);
         for (const service of this.services) {
+            console.log(`${this.yellow}Stopping ${service.name}...${this.reset}`);
             await this.stopService(service);
         }
+        console.log(`${this.green}All services stopped!${this.reset}`);
     }
 
     async restartAllServices() {
+        console.log(`\n${this.cyan}Restarting all services...${this.reset}`);
         await this.stopAllServices();
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         await this.startAllServices();
+        console.log(`${this.green}All services restarted!${this.reset}`);
+    }
+
+    showServiceInfo() {
+        console.log(`\n${this.cyan}=== SERVICE INFORMATION ===${this.reset}`);
+        this.services.forEach((service, index) => {
+            console.log(`\n${this.green}${index + 1}. ${service.name}${this.reset}`);
+            console.log(`   ${this.blue}Port:${this.reset} ${service.port}`);
+            console.log(`   ${this.blue}Type:${this.reset} ${service.type}`);
+            console.log(`   ${this.blue}Command:${this.reset} ${service.command} ${service.args.join(' ')}`);
+            console.log(`   ${this.blue}Directory:${this.reset} ${service.workingDir}`);
+            console.log(`   ${this.blue}Log File:${this.reset} ${service.logFile}`);
+        });
+        console.log(`\n${this.yellow}Press any key to return to dashboard...${this.reset}`);
+        process.stdin.once('data', () => {
+            this.displayDashboard();
+        });
     }
 
     showLogsMenu() {
-        console.log('\n=== SERVICE LOGS ===');
+        console.log(`\n${this.magenta}=== SERVICE LOGS VIEWER ===${this.reset}`);
         this.services.forEach((service, index) => {
-            console.log(`[${index + 1}] ${service.name}`);
+            const logPath = path.join(this.logDir, service.logFile);
+            const hasLogs = fs.existsSync(logPath);
+            const logSize = hasLogs ? Math.round(fs.statSync(logPath).size / 1024) : 0;
+            
+            console.log(`[${index + 1}] ${service.name} ${hasLogs ? `(${logSize}KB)` : '(No logs)'}`);
         });
         console.log('[0] Back to dashboard');
         
-        this.getUserInput('Select service to view logs: ', (input) => {
+        this.getUserInput('\nSelect service to view logs: ', (input) => {
             const choice = parseInt(input);
             if (choice === 0) return;
             
@@ -437,20 +536,25 @@ class AIDashboard {
         const logPath = path.join(this.logDir, service.logFile);
         
         if (!fs.existsSync(logPath)) {
-            console.log(`No logs found for ${service.name}`);
+            console.log(`\n${this.red}No logs found for ${service.name}${this.reset}`);
+            this.pressToContinue();
             return;
         }
 
-        console.log(`\n=== ${service.name} LOGS ===`);
+        console.log(`\n${this.cyan}=== ${service.name} LOGS (last 50 lines) ===${this.reset}`);
         try {
             const logContent = fs.readFileSync(logPath, 'utf8');
-            const lines = logContent.split('\n').slice(-50); // Last 50 lines
+            const lines = logContent.split('\n').slice(-50);
             console.log(lines.join('\n'));
         } catch (error) {
-            console.log(`Error reading logs: ${error.message}`);
+            console.log(`${this.red}Error reading logs: ${error.message}${this.reset}`);
         }
         
-        console.log('\nPress any key to continue...');
+        this.pressToContinue();
+    }
+
+    pressToContinue() {
+        console.log(`\n${this.yellow}Press any key to continue...${this.reset}`);
         process.stdin.once('data', () => {
             this.displayDashboard();
         });
@@ -492,6 +596,9 @@ class AIDashboard {
                 case 'l':
                     this.showLogsMenu();
                     break;
+                case 'i':
+                    this.showServiceInfo();
+                    break;
                 case 'q':
                     this.shutdown();
                     break;
@@ -504,16 +611,16 @@ class AIDashboard {
 
     launchVoidAI() {
         if (!this.voidFound) {
-            console.log('\nVoid AI not found in PATH. Please install Void AI first.');
+            console.log(`\n${this.red}Void AI not found in PATH. Please install Void AI first.${this.reset}`);
             return;
         }
 
         if (this.voidProcess) {
-            console.log('\nVoid AI is already running.');
+            console.log(`\n${this.yellow}Void AI is already running.${this.reset}`);
             return;
         }
 
-        console.log('\nLaunching Void AI...');
+        console.log(`\n${this.green}Launching Void AI with configuration...${this.reset}`);
         this.voidProcess = spawn('void', ['--config', this.voidConfig], {
             stdio: 'inherit',
             detached: true
@@ -521,6 +628,7 @@ class AIDashboard {
 
         this.voidProcess.on('close', () => {
             this.voidProcess = null;
+            console.log(`${this.yellow}Void AI process terminated.${this.reset}`);
         });
     }
 
@@ -532,7 +640,8 @@ class AIDashboard {
     }
 
     async start() {
-        console.log('Initializing AI Services Dashboard...');
+        console.log(`${this.green}Initializing Enhanced AI Services Dashboard...${this.reset}`);
+        console.log(`${this.blue}Dashboard Width: ${this.innerWidth} characters${this.reset}`);
         
         // Start monitoring
         this.monitoringInterval = setInterval(() => {
@@ -550,11 +659,12 @@ class AIDashboard {
         // Initial display
         this.displayDashboard();
         
-        console.log('\nDashboard started. Use keyboard controls to manage services.');
+        console.log(`\n${this.green}Enhanced dashboard started successfully!${this.reset}`);
+        console.log(`${this.cyan}Using wider display (${this.innerWidth} chars) for better readability.${this.reset}`);
     }
 
     async shutdown() {
-        console.log('\nShutting down AI Services Dashboard...');
+        console.log(`\n${this.yellow}Shutting down AI Services Dashboard...${this.reset}`);
         
         clearInterval(this.monitoringInterval);
         clearInterval(this.dashboardUpdateInterval);
@@ -565,7 +675,7 @@ class AIDashboard {
             this.voidProcess.kill();
         }
         
-        console.log('All services stopped. Goodbye!');
+        console.log(`${this.green}All services stopped. Goodbye!${this.reset}`);
         process.exit(0);
     }
 }
