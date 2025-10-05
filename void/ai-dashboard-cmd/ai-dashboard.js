@@ -294,7 +294,7 @@ class AIDashboard {
         
         if (totalDifference > 0) {
             const usage = 100 - (100 * idleDifference / totalDifference);
-            this.cpuUsage = Math.round(usage * 100) / 100;
+            this.cpuUsage = Math.round(usage); // Rounded to integer
             this.systemMetrics.cpu = `${this.cpuUsage}%`;
         }
         
@@ -309,8 +309,8 @@ class AIDashboard {
             if (!error && stdout) {
                 const usage = parseInt(stdout.trim());
                 if (!isNaN(usage)) {
-                    this.gpuUsage = usage;
-                    this.systemMetrics.gpu = `${usage}%`;
+                    this.gpuUsage = Math.round(usage); // Rounded to integer
+                    this.systemMetrics.gpu = `${this.gpuUsage}%`;
                     return;
                 }
             }
@@ -320,7 +320,7 @@ class AIDashboard {
                 if (!error && stdout) {
                     const match = stdout.match(/(\d+)%/);
                     if (match) {
-                        this.gpuUsage = parseInt(match[1]);
+                        this.gpuUsage = Math.round(parseInt(match[1])); // Rounded to integer
                         this.systemMetrics.gpu = `${this.gpuUsage}%`;
                         return;
                     }
@@ -334,7 +334,7 @@ class AIDashboard {
                             if (line.includes('Render/3D/0')) {
                                 const match = line.match(/(\d+)%/);
                                 if (match) {
-                                    this.gpuUsage = parseInt(match[1]);
+                                    this.gpuUsage = Math.round(parseInt(match[1])); // Rounded to integer
                                     this.systemMetrics.gpu = `${this.gpuUsage}%`;
                                     return;
                                 }
@@ -354,13 +354,13 @@ class AIDashboard {
             if (!error && stdout) {
                 // Simulate NPU usage based on system load
                 const simulatedUsage = Math.min(100, Math.round(this.cpuUsage * 1.2));
-                this.npuUsage = simulatedUsage;
-                this.systemMetrics.npu = `${simulatedUsage}%`;
+                this.npuUsage = Math.round(simulatedUsage); // Rounded to integer
+                this.systemMetrics.npu = `${this.npuUsage}%`;
             } else {
                 // Fallback simulation
                 const simulatedUsage = Math.min(100, Math.round(this.cpuUsage * 0.8));
-                this.npuUsage = simulatedUsage;
-                this.systemMetrics.npu = `${simulatedUsage}%`;
+                this.npuUsage = Math.round(simulatedUsage); // Rounded to integer
+                this.systemMetrics.npu = `${this.npuUsage}%`;
             }
         });
     }
@@ -455,12 +455,14 @@ class AIDashboard {
 
     updateSystemMetrics() {
         try {
-            // RAM
+            // RAM - rounded to integers
             const totalMem = os.totalmem() / 1024 / 1024 / 1024;
             const freeMem = os.freemem() / 1024 / 1024 / 1024;
             const usedMem = totalMem - freeMem;
             const ramPercent = Math.round((usedMem / totalMem) * 100);
-            this.systemMetrics.ram = `${ramPercent}% (${usedMem.toFixed(1)}GB/${totalMem.toFixed(1)}GB)`;
+            const usedGB = Math.round(usedMem); // Rounded to integer
+            const totalGB = Math.round(totalMem); // Rounded to integer
+            this.systemMetrics.ram = `${ramPercent}% (${usedGB}GB/${totalGB}GB)`;
         } catch (error) {
             this.systemMetrics.ram = 'N/A';
         }
@@ -480,8 +482,8 @@ class AIDashboard {
                 const free = stats.bfree * stats.bsize;
                 const used = total - free;
                 const diskPercent = Math.round((used / total) * 100);
-                const usedGB = (used / 1024 / 1024 / 1024).toFixed(1);
-                const totalGB = (total / 1024 / 1024 / 1024).toFixed(1);
+                const usedGB = Math.round(used / 1024 / 1024 / 1024); // Rounded to integer
+                const totalGB = Math.round(total / 1024 / 1024 / 1024); // Rounded to integer
                 this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
                 return;
             }
@@ -510,8 +512,8 @@ class AIDashboard {
             if (size > 0 && free >= 0) {
                 const used = size - free;
                 const diskPercent = Math.round((used / size) * 100);
-                const usedGB = (used / 1024 / 1024 / 1024).toFixed(1);
-                const totalGB = (size / 1024 / 1024 / 1024).toFixed(1);
+                const usedGB = Math.round(used / 1024 / 1024 / 1024); // Rounded to integer
+                const totalGB = Math.round(size / 1024 / 1024 / 1024); // Rounded to integer
                 this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
             } else {
                 this.systemMetrics.disk = 'N/A';
@@ -529,7 +531,7 @@ class AIDashboard {
         
         console.log(headerLine);
         
-        // Updated metrics line with CPU, GPU, NPU, RAM, DISK
+        // Updated metrics line with CPU, GPU, NPU, RAM, DISK - all rounded to integers
         const metricsTitle = `${this.cyan}SYSTEM METRICS:${this.reset}`;
         const cpuText = `${this.blue}CPU:${this.reset} ${this.systemMetrics.cpu}`;
         const gpuText = `${this.magenta}GPU:${this.reset} ${this.systemMetrics.gpu}`;
@@ -564,14 +566,16 @@ class AIDashboard {
         console.log(`\n${this.cyan}${headerLine}${this.reset}`);
         console.log('-'.repeat(this.innerWidth));
 
-        // Service rows with fixed column widths
+        // Service rows with fixed column widths and proper spacing
         this.services.forEach(service => {
             const statusText = this.getStatusIcon(service.status);
             const statusColor = this.getStatusColor(service.status);
             
-            // Fixed width formatting for each column
+            // Fixed width formatting for each column with proper spacing
             const serviceName = service.name.padEnd(this.columnWidths.service);
             const servicePort = service.port.toString().padEnd(this.columnWidths.port);
+            
+            // Add space between status and PID info
             const serviceStatus = `${statusColor}${statusText}${this.reset}`.padEnd(this.columnWidths.statusIcon);
             const serviceInfo = (service.pid ? `PID: ${service.pid}` : 'Not running').padEnd(this.columnWidths.statusInfo);
             const serviceResponse = this.formatResponseTime(service.responseTime).padEnd(this.columnWidths.responseTime);
@@ -587,16 +591,20 @@ class AIDashboard {
         const footerLine = '='.repeat(this.innerWidth);
         console.log('\n' + footerLine);
         
-        const controls = `${this.green}CONTROLS:${this.reset} ` +
-                        `[${this.cyan}V${this.reset}] Void AI | ` +
-                        `[${this.green}S${this.reset}] Start All | ` +
-                        `[${this.yellow}R${this.reset}] Restart All | ` +
-                        `[${this.red}T${this.reset}] Stop All | ` +
-                        `[${this.magenta}L${this.reset}] Logs | ` +
-                        `[${this.blue}I${this.reset}] Service Info | ` +
-                        `[${this.red}Q${this.reset}] Quit`;
+        // Split controls into two lines for better readability
+        const controlsLine1 = `${this.green}CONTROLS:${this.reset} ` +
+                            `[${this.cyan}V${this.reset}] Void AI | ` +
+                            `[${this.green}S${this.reset}] Start All | ` +
+                            `[${this.yellow}R${this.reset}] Restart All | ` +
+                            `[${this.red}T${this.reset}] Stop All`;
         
-        console.log(controls);
+        const controlsLine2 = ' '.repeat(9) + // Align with first line
+                            `[${this.magenta}L${this.reset}] Logs | ` +
+                            `[${this.blue}I${this.reset}] Service Info | ` +
+                            `[${this.red}Q${this.reset}] Quit`;
+        
+        console.log(controlsLine1);
+        console.log(controlsLine2);
         console.log(footerLine);
         
         const hardwareInfo = `Hardware: ${this.cpuCores} CPU Cores${this.hasGPU ? ' | GPU Detected' : ''}${this.hasNPU ? ' | NPU Detected' : ''}`;
