@@ -130,17 +130,21 @@ class AIDashboard {
             net: 'N/A'
         };
         
-        // Increased horizontal length by 25% (from 80 to 100 characters)
-        this.innerWidth = 100;
+        // Calculate total width based on column widths
         this.columnWidths = {
-            service: 16,      // Increased from 12
-            port: 10,         // Increased from 8
-            statusIcon: 10,   // Increased from 8
-            statusInfo: 20,   // Increased from 15
-            responseTime: 20, // Increased from 16
-            lastCheck: 18,    // Increased from 14
-            uptime: 16        // New column for uptime
+            service: 16,
+            port: 10,
+            statusIcon: 15,
+            statusInfo: 20,
+            responseTime: 20,
+            lastCheck: 18,
+            uptime: 16
         };
+        
+        // Calculate total table width (sum of all columns + spaces between)
+        this.tableWidth = Object.values(this.columnWidths).reduce((a, b) => a + b, 0) + 5;
+        this.innerWidth = this.tableWidth;
+        
         this.red = '\x1b[31m';
         this.green = '\x1b[32m';
         this.yellow = '\x1b[33m';
@@ -227,21 +231,21 @@ class AIDashboard {
     }
 
     formatResponseTime(ms) {
-        if (ms === null) return 'N/A'.padEnd(8);
-        if (ms < 1000) return `${ms}ms`.padEnd(8);
-        return `${(ms / 1000).toFixed(1)}s`.padEnd(8);
+        if (ms === null) return 'N/A';
+        if (ms < 1000) return `${ms}ms`;
+        return `${(ms / 1000).toFixed(1)}s`;
     }
 
     formatUptime(startTime) {
-        if (!startTime) return 'N/A'.padEnd(10);
+        if (!startTime) return 'N/A';
         const uptime = Date.now() - startTime;
         const seconds = Math.floor(uptime / 1000);
         const minutes = Math.floor(seconds / 60);
         const hours = Math.floor(minutes / 60);
         
-        if (hours > 0) return `${hours}h${minutes % 60}m`.padEnd(10);
-        if (minutes > 0) return `${minutes}m${seconds % 60}s`.padEnd(10);
-        return `${seconds}s`.padEnd(10);
+        if (hours > 0) return `${hours}h${minutes % 60}m`;
+        if (minutes > 0) return `${minutes}m${seconds % 60}s`;
+        return `${seconds}s`;
     }
 
     async checkServiceHealth(service) {
@@ -291,7 +295,7 @@ class AIDashboard {
         }
 
         try {
-            // CPU - More detailed info
+            // CPU
             exec('wmic cpu get loadpercentage /value', (err, stdout) => {
                 if (!err && stdout) {
                     const lines = stdout.trim().split('\n');
@@ -311,7 +315,7 @@ class AIDashboard {
         }
 
         try {
-            // Disk - More detailed info
+            // Disk
             exec('wmic logicaldisk where DeviceID="C:" get Size,FreeSpace /value', (err, stdout) => {
                 if (!err && stdout) {
                     const lines = stdout.trim().split('\n');
@@ -341,25 +345,55 @@ class AIDashboard {
 
     displayHeader() {
         console.clear();
-        console.log('='.repeat(this.innerWidth));
-        console.log(`${this.green}🚀 AI SERVICES DASHBOARD - ENHANCED WIDE DISPLAY ${this.reset}`.padEnd(60) + 
-                   `${this.cyan}SYSTEM METRICS${this.reset}`.padEnd(40));
-        console.log('='.repeat(this.innerWidth));
-        console.log(`${this.blue}CPU:${this.reset} ${this.systemMetrics.cpu}`.padEnd(30) +
-                   `${this.blue}RAM:${this.reset} ${this.systemMetrics.ram}`.padEnd(40) +
-                   `${this.blue}DISK:${this.reset} ${this.systemMetrics.disk}`.padEnd(30));
+        const headerLine = '='.repeat(this.innerWidth);
+        console.log(headerLine);
+        
+        // Main title only - removed SYSTEM METRICS from here
+        const title = `${this.green}🚀 AI SERVICES DASHBOARD - ENHANCED WIDE DISPLAY ${this.reset}`;
+        console.log(title);
+        
+        console.log(headerLine);
+        
+        // SYSTEM METRICS moved to the beginning of this line
+        const metricsTitle = `${this.cyan}SYSTEM METRICS:${this.reset}`;
+        const cpuText = `${this.blue}CPU:${this.reset} ${this.systemMetrics.cpu}`;
+        const ramText = `${this.blue}RAM:${this.reset} ${this.systemMetrics.ram}`;
+        const diskText = `${this.blue}DISK:${this.reset} ${this.systemMetrics.disk}`;
+        
+        // Calculate spacing to ensure proper alignment
+        const totalMetricsLength = this.stripAnsi(metricsTitle + cpuText + ramText + diskText).length;
+        const availableSpace = this.innerWidth - totalMetricsLength;
+        const spacing = Math.max(2, Math.floor(availableSpace / 3));
+        
+        const metricsLine = metricsTitle + 
+                           ' '.repeat(spacing) + 
+                           cpuText + 
+                           ' '.repeat(spacing) + 
+                           ramText + 
+                           ' '.repeat(spacing) + 
+                           diskText;
+        
+        console.log(metricsLine);
         console.log('-'.repeat(this.innerWidth));
     }
 
+    stripAnsi(str) {
+        return str.replace(/\x1b\[[0-9;]*m/g, '');
+    }
+
     displayServices() {
-        console.log(`\n${this.cyan}SERVICE${' '.repeat(this.columnWidths.service - 7)}` +
-                   `PORT${' '.repeat(this.columnWidths.port - 4)}` +
-                   `STATUS${' '.repeat(this.columnWidths.statusIcon - 6)}` +
-                   `PROCESS INFO${' '.repeat(this.columnWidths.statusInfo - 12)}` +
-                   `RESPONSE TIME${' '.repeat(this.columnWidths.responseTime - 13)}` +
-                   `LAST CHECK${' '.repeat(this.columnWidths.lastCheck - 10)}` +
-                   `UPTIME${this.reset}`);
+        const headers = [
+            'SERVICE'.padEnd(this.columnWidths.service),
+            'PORT'.padEnd(this.columnWidths.port),
+            'STATUS'.padEnd(this.columnWidths.statusIcon),
+            'PROCESS INFO'.padEnd(this.columnWidths.statusInfo),
+            'RESPONSE TIME'.padEnd(this.columnWidths.responseTime),
+            'LAST CHECK'.padEnd(this.columnWidths.lastCheck),
+            'UPTIME'.padEnd(this.columnWidths.uptime)
+        ];
         
+        const headerLine = headers.join('');
+        console.log(`\n${this.cyan}${headerLine}${this.reset}`);
         console.log('-'.repeat(this.innerWidth));
 
         this.services.forEach(service => {
@@ -370,28 +404,37 @@ class AIDashboard {
             const lastCheck = service.lastCheck || 'Never';
             const uptime = this.formatUptime(service.startTime);
 
-            console.log(service.name.padEnd(this.columnWidths.service) +
-                       service.port.toString().padEnd(this.columnWidths.port) +
-                       `${statusColor}${statusText}${this.reset}`.padEnd(this.columnWidths.statusIcon) +
-                       info.padEnd(this.columnWidths.statusInfo) +
-                       response.padEnd(this.columnWidths.responseTime) +
-                       lastCheck.padEnd(this.columnWidths.lastCheck) +
-                       uptime.padEnd(this.columnWidths.uptime));
+            const serviceLine = 
+                service.name.padEnd(this.columnWidths.service) +
+                service.port.toString().padEnd(this.columnWidths.port) +
+                `${statusColor}${statusText}${this.reset}`.padEnd(this.columnWidths.statusIcon) +
+                info.padEnd(this.columnWidths.statusInfo) +
+                response.padEnd(this.columnWidths.responseTime) +
+                lastCheck.padEnd(this.columnWidths.lastCheck) +
+                uptime.padEnd(this.columnWidths.uptime);
+
+            console.log(serviceLine);
         });
     }
 
     displayFooter() {
-        console.log('\n' + '='.repeat(this.innerWidth));
-        console.log(`${this.green}CONTROLS:${this.reset} ` +
-                   `[${this.cyan}V${this.reset}] Void AI | ` +
-                   `[${this.green}S${this.reset}] Start All | ` +
-                   `[${this.yellow}R${this.reset}] Restart All | ` +
-                   `[${this.red}T${this.reset}] Stop All | ` +
-                   `[${this.magenta}L${this.reset}] Logs | ` +
-                   `[${this.blue}I${this.reset}] Service Info | ` +
-                   `[${this.red}Q${this.reset}] Quit`);
-        console.log('='.repeat(this.innerWidth));
-        console.log(`${this.yellow}💡 TIP:${this.reset} Dashboard width: ${this.innerWidth} chars | Services: ${this.services.length} | Auto-refresh: 2s`);
+        const footerLine = '='.repeat(this.innerWidth);
+        console.log('\n' + footerLine);
+        
+        const controls = `${this.green}CONTROLS:${this.reset} ` +
+                        `[${this.cyan}V${this.reset}] Void AI | ` +
+                        `[${this.green}S${this.reset}] Start All | ` +
+                        `[${this.yellow}R${this.reset}] Restart All | ` +
+                        `[${this.red}T${this.reset}] Stop All | ` +
+                        `[${this.magenta}L${this.reset}] Logs | ` +
+                        `[${this.blue}I${this.reset}] Service Info | ` +
+                        `[${this.red}Q${this.reset}] Quit`;
+        
+        console.log(controls);
+        console.log(footerLine);
+        
+        const tip = `${this.yellow}💡 TIP:${this.reset} Dashboard width: ${this.innerWidth} chars | Services: ${this.services.length} | Auto-refresh: 2s`;
+        console.log(tip);
     }
 
     displayDashboard() {
@@ -437,12 +480,10 @@ class AIDashboard {
                 logStream.end();
             });
 
-            // Wait a bit for service to start
             await new Promise(resolve => setTimeout(resolve, 3000));
             
         } catch (error) {
             service.status = 'crashed';
-            console.error(`Failed to start ${service.name}:`, error.message);
         }
     }
 
@@ -458,7 +499,6 @@ class AIDashboard {
             service.status = 'stopped';
             service.startTime = null;
             
-            // Log the stop
             const logStream = fs.createWriteStream(path.join(this.logDir, service.logFile), { flags: 'a' });
             logStream.write(`[INFO] Service stopped manually at ${new Date().toISOString()}\n`);
             logStream.end();
@@ -473,7 +513,7 @@ class AIDashboard {
         for (const service of this.services) {
             console.log(`${this.blue}Starting ${service.name}...${this.reset}`);
             await this.startService(service);
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Stagger starts
+            await new Promise(resolve => setTimeout(resolve, 1500));
         }
         console.log(`${this.green}All services start initiated!${this.reset}`);
     }
@@ -643,24 +683,18 @@ class AIDashboard {
         console.log(`${this.green}Initializing Enhanced AI Services Dashboard...${this.reset}`);
         console.log(`${this.blue}Dashboard Width: ${this.innerWidth} characters${this.reset}`);
         
-        // Start monitoring
         this.monitoringInterval = setInterval(() => {
             this.monitorServices();
         }, 5000);
 
-        // Start dashboard updates
         this.dashboardUpdateInterval = setInterval(() => {
             this.displayDashboard();
         }, 2000);
 
-        // Setup input handling
         this.setupInputHandling();
-
-        // Initial display
         this.displayDashboard();
         
         console.log(`\n${this.green}Enhanced dashboard started successfully!${this.reset}`);
-        console.log(`${this.cyan}Using wider display (${this.innerWidth} chars) for better readability.${this.reset}`);
     }
 
     async shutdown() {
