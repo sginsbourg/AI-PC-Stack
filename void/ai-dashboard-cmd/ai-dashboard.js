@@ -109,6 +109,9 @@ class AIDashboard {
         this.dashboardUpdateInterval = null;
         
         this.setupConsole();
+        this.innerWidth = 76; // Fixed inner content width for alignment
+        this.red = '\x1b[31m';
+        this.reset = '\x1b[0m';
     }
 
     setupConsole() {
@@ -319,10 +322,9 @@ class AIDashboard {
                 if (!error && stdout.trim()) {
                     this.voidFound = true;
                     this.voidPath = stdout.trim().split('\n')[0];
-                    console.log('   OK Void AI found: ' + this.voidPath);
+                    console.log('   OK Void AI found at: ' + this.voidPath);
                 } else {
-                    console.log('   Warning: Void AI not found in PATH');
-                    console.log('   Tip: Download from: https://github.com/void-ai/void');
+                    console.log('   X Void AI not found in PATH');
                 }
                 resolve();
             });
@@ -332,30 +334,27 @@ class AIDashboard {
     startMonitoring() {
         this.monitoringInterval = setInterval(() => {
             this.services.forEach(service => {
-                if (service.alreadyRunning) return;
-                
-                if (service.process) {
-                    try {
-                        if (!service.process.kill(0)) {
-                            service.status = 'crashed';
-                            service.process = null;
-                            service.pid = null;
-                        } else {
-                            service.status = 'running';
-                        }
-                    } catch (e) {
-                        service.status = 'crashed';
-                        service.process = null;
-                        service.pid = null;
-                    }
-                }
-
-                this.checkHealth(service);
+                this.updateServiceStatus(service);
             });
         }, 2000);
     }
 
-    checkHealth(service) {
+    updateServiceStatus(service) {
+        if (service.alreadyRunning) {
+            service.status = 'responding';
+            return;
+        }
+
+        if (service.process && !service.process.killed) {
+            service.status = 'running';
+            this.checkResponseTime(service);
+        } else {
+            service.status = 'stopped';
+        }
+    }
+
+    checkResponseTime(service) {
+        const start = Date.now();
         const req = http.request({
             hostname: 'localhost',
             port: service.port,
@@ -363,104 +362,75 @@ class AIDashboard {
             method: 'GET',
             timeout: 5000
         }, (res) => {
-            const start = Date.now();
-            res.on('data', () => {});
-            res.on('end', () => {
-                service.responseTime = Date.now() - start;
-                if (service.responseTime > 5000) {
-                    service.status = 'slow';
-                } else {
-                    service.status = 'responding';
-                }
-            });
+            const time = Date.now() - start;
+            service.responseTime = time + 'ms';
+            if (time > 2000) {
+                service.status = 'slow';
+            } else {
+                service.status = 'responding';
+            }
+            req.destroy();
         });
 
         req.on('error', () => {
+            service.responseTime = 'ERROR';
             service.status = 'unresponsive';
-            service.responseTime = null;
         });
 
         req.on('timeout', () => {
-            req.destroy();
+            service.responseTime = 'TIMEOUT';
             service.status = 'slow';
-            service.responseTime = '>5000ms';
+            req.destroy();
         });
 
         req.end();
     }
 
     async startAllServices() {
-        console.log('\nStarting all services...');
-        
+        console.log('\nStarting services...');
         for (const service of this.services) {
             if (!service.alreadyRunning) {
                 await this.startService(service);
-                await new Promise(resolve => setTimeout(resolve, 3000));
             }
         }
     }
 
     async startService(service) {
         return new Promise((resolve) => {
-            console.log('   Starting ' + service.name + '...');
-            service.status = 'starting';
-            service.startTime = Date.now();
-
             const logPath = path.join(this.logDir, service.logFile);
             const logStream = fs.createWriteStream(logPath, { flags: 'a' });
 
-            const spawnProcess = () => {
-                let spawnArgs = [service.command, ...service.args];
-                let spawnOptions = {
-                    cwd: service.workingDir,
-                    stdio: ['ignore', logStream, logStream],
-                    detached: true
-                };
+            let cmdArgs = [service.command, ...service.args];
+            if (service.type === 'java') {
+                cmdArgs = service.args;
+            }
 
-                if (service.type === 'java' || service.type === 'executable') {
-                    spawnOptions.shell = true;
-                }
-
-                service.process = spawn(service.command, service.args, spawnOptions);
-
-                service.process.on('spawn', () => {
-                    service.pid = service.process.pid;
-                    console.log('   OK ' + service.name + ' PID: ' + service.pid);
-                });
-
-                service.process.on('error', (error) => {
-                    console.log('   X ' + service.name + ' failed to start: ' + error.message);
-                    service.status = 'failed';
-                    logStream.end();
-                    resolve();
-                });
-
-                service.process.on('exit', (code) => {
-                    if (code !== 0) {
-                        service.status = 'crashed';
-                    }
-                    service.process = null;
-                    service.pid = null;
-                    logStream.end();
-                });
-
-                setTimeout(() => {
-                    if (service.process) {
-                        service.status = 'running';
-                    }
-                    resolve();
-                }, 2000);
-            };
-
-            logStream.on('open', () => {
-                spawnProcess();
+            service.process = spawn(service.command, service.args, {
+                cwd: service.workingDir,
+                stdio: ['ignore', logStream, logStream],
+                detached: true
             });
 
-            logStream.on('error', (error) => {
-                console.log('   X Failed to open log file for ' + service.name + ': ' + error.message);
+            service.process.on('spawn', () => {
+                service.pid = service.process.pid;
+                service.status = 'starting';
+                service.startTime = Date.now();
+            });
+
+            service.process.on('error', (error) => {
                 service.status = 'failed';
+                console.log('   X ' + service.name + ' failed to start: ' + error.message);
                 resolve();
             });
+
+            service.process.on('close', (code) => {
+                if (code !== 0) {
+                    service.status = 'crashed';
+                }
+                resolve();
+            });
+
+            setTimeout(() => resolve(), 1000);
         });
     }
 
@@ -473,9 +443,8 @@ class AIDashboard {
   opensora: http://localhost:7861
   tg_webui: http://localhost:7862
 `;
-        
+
         fs.writeFileSync(this.voidConfig, config);
-        console.log('\nCreated Void AI config: ' + this.voidConfig);
     }
 
     startDashboardUpdates() {
@@ -489,21 +458,37 @@ class AIDashboard {
 
     updateDashboard() {
         console.clear();
-        console.log('╔══════════════════════════════════════════════════════════════════════════════╗');
-        console.log('║                          AI SERVICES DASHBOARD v3.1                         ║');
-        console.log('║                    Fixed Path Errors & Final Polish                        ║');
-        console.log('╚══════════════════════════════════════════════════════════════════════════════╝');
-        console.log('║                                                                              ║');
-        console.log('║  REAL-TIME SERVICE MONITOR                           ║');
-        console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
-        console.log('║ Service           Port     Status         Response Time    Last Check       ║');
-        console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
-        
+        this.setupConsole();
+
+        console.log('║ SERVICE        PORT     STATUS   STATUS INFO      RESPONSE TIME    LAST CHECK  ║'.padEnd(80, ' '));
+        console.log('╠═══════════════════════════════╤════════════╤═══════════════════╤══════════════╣');
+
         this.services.forEach(service => {
             const statusIcon = this.getStatusIcon(service.status);
-            const responseTime = service.responseTime ? '' + service.responseTime + 'ms' : '---';
             const statusDisplay = this.getStatusDisplay(service.status, service.alreadyRunning);
-            console.log('║ ' + service.name.padEnd(15) + ' ' + service.port.toString().padEnd(8) + ' ' + statusIcon + ' ' + statusDisplay.padEnd(12) + ' ' + responseTime.padEnd(15) + ' ' + new Date().toLocaleTimeString().padEnd(12) + ' ║');
+            const responseTime = service.responseTime || 'N/A';
+            const lastCheck = new Date().toLocaleTimeString();
+
+            // Color status if not OK
+            let coloredIcon = statusIcon;
+            let coloredDisplay = statusDisplay.padEnd(12);
+            if (statusIcon !== 'OK') {
+                coloredIcon = this.red + statusIcon + this.reset;
+                const displayLength = statusDisplay.length;
+                coloredDisplay = this.red + statusDisplay + this.reset + ' '.repeat(12 - displayLength);
+            }
+
+            let lineContent = service.name.padEnd(12) + ' ' + 
+                              service.port.toString().padEnd(8) + ' ' + 
+                              coloredIcon + ' ' + 
+                              coloredDisplay + ' ' + 
+                              responseTime.padEnd(15) + ' ' + 
+                              lastCheck.padEnd(12);
+
+            // Pad to fixed inner width
+            lineContent = lineContent.padEnd(this.innerWidth);
+
+            console.log('║ ' + lineContent + ' ║');
         });
 
         console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
@@ -519,10 +504,19 @@ class AIDashboard {
             }
         }
         
-        console.log('║ Void AI Status: ' + voidStatus + ''.padStart(55 - voidStatus.length, ' ') + '║');
+        let voidLineContent = 'Void AI Status: ' + voidStatus;
+        voidLineContent = voidLineContent.padEnd(this.innerWidth);
+        console.log('║ ' + voidLineContent + ' ║');
         console.log('╠══════════════════════════════════════════════════════════════════════════════╣');
-        console.log('║ [V] Launch Void AI  [R] Restart Services  [L] View Logs  [D] Diagnostics    ║');
-        console.log('║ [S] Detailed Status  [1-6] Restart Individual  [Q] Quit & Shutdown         ║');
+
+        let controls1 = '[V] Launch Void AI  [R] Restart Services  [L] View Logs  [D] Diagnostics';
+        controls1 = controls1.padEnd(this.innerWidth);
+        console.log('║ ' + controls1 + ' ║');
+
+        let controls2 = '[S] Detailed Status  [1-6] Restart Individual  [Q] Quit & Shutdown';
+        controls2 = controls2.padEnd(this.innerWidth);
+        console.log('║ ' + controls2 + ' ║');
+
         console.log('╚══════════════════════════════════════════════════════════════════════════════╝');
     }
 

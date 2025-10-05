@@ -4,3 +4,6 @@
 /ai-stack-dashboard/node_modules
 /void/ai-dashboard/ai-dashboard-gui/node_modules
 /void/ai-dashboard/ai-dashboard-gui/service_logs
+/void/ai-dashboard-cmd/service_logs
+/void/ai-dashboard-gui/node_modules
+/void/ai-dashboard-gui/service_logs
