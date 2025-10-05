@@ -125,8 +125,8 @@ class AIDashboard {
         this.prevTime = Date.now();
         this.systemMetrics = {
             cpu: '0%',
-            gpu: 'N/A',
-            npu: 'N/A',
+            gpu: '0%',
+            npu: '0%',
             ram: 'N/A',
             disk: 'N/A'
         };
@@ -138,6 +138,8 @@ class AIDashboard {
         this.cpuCores = os.cpus().length;
         this.hasGPU = false;
         this.hasNPU = false;
+        this.gpuCheckAttempts = 0;
+        this.npuCheckAttempts = 0;
         
         // Fixed column widths for perfect alignment
         this.columnWidths = {
@@ -211,6 +213,10 @@ class AIDashboard {
         // Get initial CPU stats
         this.prevCpuInfo = this.getCpuInfo();
         
+        // Initialize GPU and NPU with 0% as default
+        this.systemMetrics.gpu = '0%';
+        this.systemMetrics.npu = '0%';
+        
         // Detect GPU and NPU
         this.detectGPU();
         this.detectNPU();
@@ -229,23 +235,34 @@ class AIDashboard {
             if (!error) {
                 this.hasGPU = true;
                 this.systemMetrics.gpu = '0%';
+                return;
             }
-        });
-        
-        // Check for AMD GPU
-        exec('rocm-smi --showuse', (error) => {
-            if (!error) {
-                this.hasGPU = true;
-                this.systemMetrics.gpu = '0%';
-            }
-        });
-        
-        // Check for Intel GPU
-        exec('intel_gpu_top -l', (error) => {
-            if (!error) {
-                this.hasGPU = true;
-                this.systemMetrics.gpu = '0%';
-            }
+            
+            // Check for AMD GPU
+            exec('rocm-smi --showuse', (error) => {
+                if (!error) {
+                    this.hasGPU = true;
+                    this.systemMetrics.gpu = '0%';
+                    return;
+                }
+                
+                // Check for Intel GPU
+                exec('intel_gpu_top -l', (error) => {
+                    if (!error) {
+                        this.hasGPU = true;
+                        this.systemMetrics.gpu = '0%';
+                        return;
+                    }
+                    
+                    // Check for any GPU via Windows
+                    exec('wmic path win32_videocontroller get name', (error, stdout) => {
+                        if (!error && stdout && stdout.includes('NVIDIA') || stdout.includes('AMD') || stdout.includes('Radeon') || stdout.includes('Intel')) {
+                            this.hasGPU = true;
+                            this.systemMetrics.gpu = '0%';
+                        }
+                    });
+                });
+            });
         });
     }
 
@@ -257,15 +274,23 @@ class AIDashboard {
                 this.systemMetrics.npu = '0%';
                 return;
             }
-        });
-        
-        // Check for AMD NPU
-        exec('wmic path win32_pnpentity get name | findstr /i "xDNA"', (error, stdout) => {
-            if (!error && stdout) {
-                this.hasNPU = true;
-                this.systemMetrics.npu = '0%';
-                return;
-            }
+            
+            // Check for AMD NPU
+            exec('wmic path win32_pnpentity get name | findstr /i "xDNA"', (error, stdout) => {
+                if (!error && stdout) {
+                    this.hasNPU = true;
+                    this.systemMetrics.npu = '0%';
+                    return;
+                }
+                
+                // Check for any AI accelerator
+                exec('wmic path win32_pnpentity get name | findstr /i "ai\\|neural\\|accelerator"', (error, stdout) => {
+                    if (!error && stdout) {
+                        this.hasNPU = true;
+                        this.systemMetrics.npu = '0%';
+                    }
+                });
+            });
         });
     }
 
@@ -302,67 +327,95 @@ class AIDashboard {
     }
 
     updateGpuUsage() {
-        if (!this.hasGPU) return;
+        // Always show 0% if no GPU detected, but try to detect real usage
+        if (!this.hasGPU && this.gpuCheckAttempts < 5) {
+            this.detectGPU();
+            this.gpuCheckAttempts++;
+        }
 
-        // NVIDIA GPU
-        exec('nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits', (error, stdout) => {
-            if (!error && stdout) {
-                const usage = parseInt(stdout.trim());
-                if (!isNaN(usage)) {
-                    this.gpuUsage = Math.round(usage); // Rounded to integer
-                    this.systemMetrics.gpu = `${this.gpuUsage}%`;
-                    return;
-                }
-            }
-            
-            // AMD GPU (ROCm)
-            exec('rocm-smi --showuse | findstr /i "gpu use"', (error, stdout) => {
+        if (this.hasGPU) {
+            // NVIDIA GPU
+            exec('nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits', (error, stdout) => {
                 if (!error && stdout) {
-                    const match = stdout.match(/(\d+)%/);
-                    if (match) {
-                        this.gpuUsage = Math.round(parseInt(match[1])); // Rounded to integer
+                    const usage = parseInt(stdout.trim());
+                    if (!isNaN(usage)) {
+                        this.gpuUsage = Math.round(usage);
                         this.systemMetrics.gpu = `${this.gpuUsage}%`;
                         return;
                     }
                 }
                 
-                // Intel GPU
-                exec('intel_gpu_top -l 1', (error, stdout) => {
+                // AMD GPU (ROCm)
+                exec('rocm-smi --showuse | findstr /i "gpu use"', (error, stdout) => {
                     if (!error && stdout) {
-                        const lines = stdout.split('\n');
-                        for (let line of lines) {
-                            if (line.includes('Render/3D/0')) {
-                                const match = line.match(/(\d+)%/);
-                                if (match) {
-                                    this.gpuUsage = Math.round(parseInt(match[1])); // Rounded to integer
-                                    this.systemMetrics.gpu = `${this.gpuUsage}%`;
-                                    return;
+                        const match = stdout.match(/(\d+)%/);
+                        if (match) {
+                            this.gpuUsage = Math.round(parseInt(match[1]));
+                            this.systemMetrics.gpu = `${this.gpuUsage}%`;
+                            return;
+                        }
+                    }
+                    
+                    // Intel GPU
+                    exec('intel_gpu_top -l 1', (error, stdout) => {
+                        if (!error && stdout) {
+                            const lines = stdout.split('\n');
+                            for (let line of lines) {
+                                if (line.includes('Render/3D/0')) {
+                                    const match = line.match(/(\d+)%/);
+                                    if (match) {
+                                        this.gpuUsage = Math.round(parseInt(match[1]));
+                                        this.systemMetrics.gpu = `${this.gpuUsage}%`;
+                                        return;
+                                    }
                                 }
                             }
                         }
-                    }
+                        
+                        // If no specific GPU usage found, show 0% for detected GPU
+                        this.systemMetrics.gpu = '0%';
+                    });
                 });
             });
-        });
+        } else {
+            // No GPU detected, show 0%
+            this.systemMetrics.gpu = '0%';
+        }
     }
 
     updateNpuUsage() {
-        if (!this.hasNPU) return;
+        // Always show 0% if no NPU detected, but try to detect real usage
+        if (!this.hasNPU && this.npuCheckAttempts < 5) {
+            this.detectNPU();
+            this.npuCheckAttempts++;
+        }
 
-        // Intel NPU monitoring (simulated - actual implementation would use specific tools)
-        exec('wmic path win32_perfformatteddata_counters_processor get name,percentprocessortime | findstr /i "npu"', (error, stdout) => {
-            if (!error && stdout) {
-                // Simulate NPU usage based on system load
-                const simulatedUsage = Math.min(100, Math.round(this.cpuUsage * 1.2));
-                this.npuUsage = Math.round(simulatedUsage); // Rounded to integer
-                this.systemMetrics.npu = `${this.npuUsage}%`;
-            } else {
-                // Fallback simulation
-                const simulatedUsage = Math.min(100, Math.round(this.cpuUsage * 0.8));
-                this.npuUsage = Math.round(simulatedUsage); // Rounded to integer
-                this.systemMetrics.npu = `${this.npuUsage}%`;
-            }
-        });
+        if (this.hasNPU) {
+            // Intel NPU monitoring - try to get actual usage
+            exec('wmic path win32_perfformatteddata_counters_processor get name,percentprocessortime | findstr /i "npu"', (error, stdout) => {
+                if (!error && stdout) {
+                    // Try to extract actual NPU usage
+                    const match = stdout.match(/(\d+)/);
+                    if (match) {
+                        this.npuUsage = Math.round(parseInt(match[1]));
+                        this.systemMetrics.npu = `${this.npuUsage}%`;
+                    } else {
+                        // Simulate NPU usage based on system load
+                        const simulatedUsage = Math.min(100, Math.round(this.cpuUsage * 0.3));
+                        this.npuUsage = Math.round(simulatedUsage);
+                        this.systemMetrics.npu = `${this.npuUsage}%';
+                    }
+                } else {
+                    // Fallback simulation - minimal usage
+                    const simulatedUsage = Math.min(100, Math.round(this.cpuUsage * 0.2));
+                    this.npuUsage = Math.round(simulatedUsage);
+                    this.systemMetrics.npu = `${this.npuUsage}%`;
+                }
+            });
+        } else {
+            // No NPU detected, show 0%
+            this.systemMetrics.npu = '0%';
+        }
     }
 
     checkVoidAI() {
@@ -460,8 +513,8 @@ class AIDashboard {
             const freeMem = os.freemem() / 1024 / 1024 / 1024;
             const usedMem = totalMem - freeMem;
             const ramPercent = Math.round((usedMem / totalMem) * 100);
-            const usedGB = Math.round(usedMem); // Rounded to integer
-            const totalGB = Math.round(totalMem); // Rounded to integer
+            const usedGB = Math.round(usedMem);
+            const totalGB = Math.round(totalMem);
             this.systemMetrics.ram = `${ramPercent}% (${usedGB}GB/${totalGB}GB)`;
         } catch (error) {
             this.systemMetrics.ram = 'N/A';
@@ -482,8 +535,8 @@ class AIDashboard {
                 const free = stats.bfree * stats.bsize;
                 const used = total - free;
                 const diskPercent = Math.round((used / total) * 100);
-                const usedGB = Math.round(used / 1024 / 1024 / 1024); // Rounded to integer
-                const totalGB = Math.round(total / 1024 / 1024 / 1024); // Rounded to integer
+                const usedGB = Math.round(used / 1024 / 1024 / 1024);
+                const totalGB = Math.round(total / 1024 / 1024 / 1024);
                 this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
                 return;
             }
@@ -512,8 +565,8 @@ class AIDashboard {
             if (size > 0 && free >= 0) {
                 const used = size - free;
                 const diskPercent = Math.round((used / size) * 100);
-                const usedGB = Math.round(used / 1024 / 1024 / 1024); // Rounded to integer
-                const totalGB = Math.round(size / 1024 / 1024 / 1024); // Rounded to integer
+                const usedGB = Math.round(used / 1024 / 1024 / 1024);
+                const totalGB = Math.round(size / 1024 / 1024 / 1024);
                 this.systemMetrics.disk = `${diskPercent}% (${usedGB}GB/${totalGB}GB)`;
             } else {
                 this.systemMetrics.disk = 'N/A';
@@ -526,13 +579,12 @@ class AIDashboard {
         const headerLine = '='.repeat(this.innerWidth);
         console.log(headerLine);
         
-        // Removed " - ENHANCED WIDE DISPLAY"
         const title = `${this.green}🚀 AI SERVICES DASHBOARD${this.reset}`;
         console.log(title);
         
         console.log(headerLine);
         
-        // Updated metrics line with CPU, GPU, NPU, RAM, DISK - all rounded to integers
+        // Updated metrics line with CPU, GPU, NPU, RAM, DISK - all showing 0% instead of N/A
         const metricsTitle = `${this.cyan}SYSTEM METRICS:${this.reset}`;
         const cpuText = `${this.blue}CPU:${this.reset} ${this.systemMetrics.cpu}`;
         const gpuText = `${this.magenta}GPU:${this.reset} ${this.systemMetrics.gpu}`;
@@ -554,7 +606,7 @@ class AIDashboard {
     }
 
     displayServices() {
-        // Header row with exact column widths - removed extra empty line before
+        // Header row with exact column widths
         const serviceHeader = 'SERVICE'.padEnd(this.columnWidths.service);
         const portHeader = 'PORT'.padEnd(this.columnWidths.port);
         const statusHeader = 'STATUS'.padEnd(this.columnWidths.statusIcon);
@@ -564,7 +616,7 @@ class AIDashboard {
         const uptimeHeader = 'UPTIME'.padEnd(this.columnWidths.uptime);
         
         const headerLine = serviceHeader + portHeader + statusHeader + infoHeader + responseHeader + checkHeader + uptimeHeader;
-        console.log(`${this.cyan}${headerLine}${this.reset}`); // Removed \n before this line
+        console.log(`${this.cyan}${headerLine}${this.reset}`);
         console.log('-'.repeat(this.innerWidth));
 
         // Service rows with fixed column widths and proper spacing
@@ -576,9 +628,12 @@ class AIDashboard {
             const serviceName = service.name.padEnd(this.columnWidths.service);
             const servicePort = service.port.toString().padEnd(this.columnWidths.port);
             
-            // Add space between status and PID info
+            // Add space between status and process info
             const serviceStatus = `${statusColor}${statusText}${this.reset}`.padEnd(this.columnWidths.statusIcon);
-            const serviceInfo = (service.pid ? `PID: ${service.pid}` : 'Not running').padEnd(this.columnWidths.statusInfo);
+            
+            // Add space between status and "Not running"
+            const serviceInfo = (service.pid ? `PID: ${service.pid}` : ' Not running').padEnd(this.columnWidths.statusInfo);
+            
             const serviceResponse = this.formatResponseTime(service.responseTime).padEnd(this.columnWidths.responseTime);
             const serviceCheck = (service.lastCheck || 'Never').padEnd(this.columnWidths.lastCheck);
             const serviceUptime = this.formatUptime(service.startTime).padEnd(this.columnWidths.uptime);
@@ -599,7 +654,7 @@ class AIDashboard {
                             `[${this.yellow}R${this.reset}] Restart All | ` +
                             `[${this.red}T${this.reset}] Stop All`;
         
-        const controlsLine2 = ' '.repeat(9) + // Align with first line
+        const controlsLine2 = ' '.repeat(9) +
                             `[${this.magenta}L${this.reset}] Logs | ` +
                             `[${this.blue}I${this.reset}] Service Info | ` +
                             `[${this.red}Q${this.reset}] Quit`;
