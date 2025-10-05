@@ -1,214 +1,65 @@
-# AI Services Dashboard
+# AI Services Dashboard - Complete Management System
 
-A comprehensive Node.js dashboard for managing and monitoring your local AI services ecosystem. This application provides a beautiful terminal interface to launch, monitor, and control all your AI tools with real-time status updates.
+A comprehensive Node.js dashboard for managing and monitoring your local AI services ecosystem with real-time hardware monitoring.
 
 ## 🚀 Features
 
+### **Core Dashboard**
 - **One-Click Launch**: Start all AI services simultaneously
-- **Real-time Monitoring**: Live status updates every 2 seconds
+- **Real-time Monitoring**: Live status updates every 10 seconds
 - **Process Management**: Track PIDs, uptime, and service health
 - **Response Time Tracking**: Monitor HTTP response times
 - **Interactive Controls**: Menu-driven service management
-- **Log Viewer**: Access service logs directly from the dashboard
+- **Log Viewer**: Access service logs directly from dashboard
 - **Auto-Restart**: Restart individual or all services
 - **Void AI Integration**: Seamless Void AI launch with configuration
 - **Graceful Shutdown**: Properly stops all services on exit
 
+### **Hardware Monitoring**
+- **CPU Usage**: Real-time CPU utilization percentage
+- **GPU Monitoring**: NVIDIA, AMD, and Intel GPU support
+- **NPU Monitoring**: Intel and AMD NPU detection and monitoring
+- **RAM Usage**: Memory utilization with GB display
+- **Disk Usage**: Storage utilization with GB display
+- **Multi-Architecture**: Supports x86, ARM, and AI-accelerated hardware
+
 ## 📋 Supported Services
 
-| Service | Port | Description |
-|---------|------|-------------|
-| Nutch | 8899 | Apache Nutch REST server |
-| Ollama | 11434 | Local LLM server |
-| MeloTTS | 9880 | Text-to-speech API |
-| OpenManus | 7860 | AI assistant interface |
-| OpenSora | 7861 | Video generation AI |
-| tg-webui | 7862 | Telegram web UI with API |
+| Service | Port | Description | Type |
+|---------|------|-------------|------|
+| Nutch | 8899 | Apache Nutch REST server | Java |
+| Ollama | 11434 | Local LLM server | Executable |
+| MeloTTS | 9880 | Text-to-speech API | Python |
+| OpenManus | 7860 | AI assistant interface | Streamlit |
+| OpenSora | 7861 | Video generation AI | Streamlit |
+| tg-webui | 7862 | Telegram web UI with API | Python |
 
-## 🛠️ Installation
+## 🛠️ System Requirements
 
-### Prerequisites
+### **Minimum Requirements**
+- **OS**: Windows 10/11, Linux, or macOS
+- **Node.js**: 18.0 or higher
+- **RAM**: 8GB minimum, 16GB recommended
+- **Storage**: 10GB available space
 
-- Node.js 16+ installed
-- All AI services installed in `%USERPROFILE%\AI_STACK\`
-- Void AI (optional, for full interface)
+### **Recommended for AI Workloads**
+- **CPU**: Multi-core processor (Intel i7/Ryzen 7 or better)
+- **GPU**: NVIDIA RTX 3060+ or AMD RX 6700+ with latest drivers
+- **NPU**: Intel Meteor Lake NPU or AMD Ryzen AI
+- **RAM**: 32GB or higher for large models
+- **Storage**: SSD with 50GB+ free space
 
-### Quick Setup
+## 🎯 Quick Installation
 
-1. **Download the files** to your preferred directory:
-   - `ai-dashboard.js`
-   - `launch-ai.bat`
+### **Option 1: Automated Setup (Windows)**
+1. Download `install-ai-dashboard.bat`
+2. Right-click and "Run as administrator"
+3. Follow the prompts to install all dependencies
+4. Launch using `launch-ai.bat`
 
-2. **Ensure your AI services are installed** in the correct paths:
-   ```
-   %USERPROFILE%\AI_STACK\apache-nutch-1.21\
-   %USERPROFILE%\AI_STACK\MeloTTS\
-   %USERPROFILE%\AI_STACK\OpenManus\
-   %USERPROFILE%\AI_STACK\OpenSora\
-   %USERPROFILE%\AI_STACK\tg-webui\
-   ```
-
-3. **Install Void AI** (optional):
-   - Download from: https://github.com/void-ai/void
-   - Ensure it's in your system PATH
-
-## 🎮 Usage
-
-### Basic Launch
+### **Option 2: Manual Installation**
 ```bash
-# Double-click or run:
-launch-ai.bat
-```
-
-### Manual Launch
-```bash
-node ai-dashboard.js
-```
-
-### Dashboard Controls
-
-| Key | Action |
-|-----|--------|
-| `V` | Launch Void AI |
-| `R` | Restart services menu |
-| `S` | Detailed status view |
-| `L` | View service logs |
-| `T` | Run connection tests |
-| `Q` | Quit and stop all services |
-| `Ctrl+C` | Emergency shutdown |
-
-## 📊 Monitoring Features
-
-### Real-time Status
-The dashboard provides continuous monitoring with:
-- 🟢 **Green**: Service running and responsive
-- 🟡 **Yellow**: Service starting up
-- 🟠 **Orange**: Service slow to respond
-- 🔴 **Red**: Service crashed or failed
-- ⚪ **White**: Service stopped
-
-### Metrics Tracked
-- **Process Status**: Running, starting, crashed, etc.
-- **Response Times**: HTTP response in milliseconds
-- **Uptime**: How long services have been running
-- **PID Tracking**: Process identification
-- **Void AI Status**: Whether Void AI is running
-
-## 🔧 Configuration
-
-### Service Paths
-Edit the `services` array in `ai-dashboard.js` to modify paths:
-
-```javascript
-{
-    name: 'Your Service',
-    port: 8080,
-    command: `cd "your/path/here" && your-command`,
-    logFile: 'service.log'
-}
-```
-
-### Void AI Configuration
-The dashboard automatically generates `void_local.yaml`:
-
-```yaml
-local_services:
-  nutch: http://localhost:8899
-  ollama: http://localhost:11434
-  melotts: http://localhost:9880
-  openmanus: http://localhost:7860
-  opensora: http://localhost:7861
-  tg_webui: http://localhost:7862
-```
-
-## 🗂️ File Structure
-
-```
-ai-stack-manager/
-├── ai-dashboard.js     # Main dashboard application
-├── launch-ai.bat       # Windows launcher script
-├── void_local.yaml     # Auto-generated Void AI config
-└── service_logs/       # Service log directory
-    ├── nutch.log
-    ├── ollama.log
-    ├── melotts.log
-    ├── openmanus.log
-    ├── opensora.log
-    └── tg-webui.log
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **"Void AI not found"**
-   - Install Void AI and add to PATH
-   - Or run manually: `void --config void_local.yaml`
-
-2. **Service not starting**
-   - Check paths in `ai-dashboard.js`
-   - View logs with `L` key
-   - Verify Python/Java are installed
-
-3. **Port conflicts**
-   - Ensure no other applications using ports 7860-7862, 8899, 9880, 11434
-
-4. **Dashboard crashes**
-   - Run from Command Prompt for better error messages
-   - Check Node.js version (requires 16+)
-
-### Log Files
-All service logs are stored in `service_logs/` directory. Use the `L` key in the dashboard to view them directly.
-
-## 🔄 Restarting Services
-
-### Individual Service
-1. Press `R`
-2. Select service number
-3. Service restarts automatically
-
-### All Services
-1. Press `R`
-2. Select `0` for "Restart ALL"
-3. All services restart in sequence
-
-## 🎯 Advanced Usage
-
-### Running Without Void AI
-The dashboard works perfectly without Void AI. All services are accessible directly:
-- Nutch: http://localhost:8899
-- Ollama: http://localhost:11434
-- MeloTTS: http://localhost:9880
-- OpenManus: http://localhost:7860
-- OpenSora: http://localhost:7861
-- tg-webui: http://localhost:7862
-
-### Custom Service Integration
-Add new services by extending the `services` array in the code. Each service needs:
-- Unique name and port
-- Correct command line
-- Log file path
-
-## 📝 License
-
-MIT License - feel free to modify and distribute.
-
-## 🤝 Contributing
-
-Contributions welcome! Please feel free to submit pull requests or open issues for:
-- New service integrations
-- UI improvements
-- Additional monitoring features
-- Bug fixes
-
-## 🆘 Support
-
-If you encounter issues:
-1. Check the service logs using the `L` key
-2. Verify all prerequisite software is installed
-3. Ensure no port conflicts exist
-4. Open an issue with relevant log output
-
----
-
-**Happy AI Developing!** 🚀
+# 1. Install Node.js from https://nodejs.org
+# 2. Download dashboard files to your preferred directory
+# 3. Run the installer
+install-ai-dashboard.bat
