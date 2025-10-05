@@ -1,0 +1,12 @@
+{
+  "name": "ai-dashboard",
+  "version": "1.0.0",
+  "description": "Local AI Services Dashboard",
+  "main": "ai-dashboard.js",
+  "scripts": {
+    "start": "node ai-dashboard.js"
+  },
+  "keywords": ["ai", "dashboard", "local", "services"],
+  "author": "Your Name",
+  "license": "MIT"
+}
