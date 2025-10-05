@@ -71,4 +71,33 @@ class AIDashboard {
                 status: 'stopped',
                 startTime: null,
                 responseTime: null,
-                alreadyRunning:
+                alreadyRunning: false,
+                type: 'streamlit',
+                restartCount: 0,
+                maxRestarts: 5
+            },
+            {
+                name: 'OpenSora',
+                port: 7861,
+                command: 'streamlit',
+                args: ['run', 'opensora_web.py', '--server.port', '7861', '--server.address', '0.0.0.0'],
+                workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'OpenSora'),
+                logFile: 'opensora.log',
+                process: null,
+                pid: null,
+                status: 'stopped',
+                startTime: null,
+                responseTime: null,
+                alreadyRunning: false,
+                type: 'streamlit',
+                restartCount: 0,
+                maxRestarts: 5
+            },
+            {
+                name: 'tg-webui',
+                port: 7862,
+                command: 'python',
+                args: ['server.py', '--api'],
+                workingDir: path.join(process.env.USERPROFILE, 'AI_STACK', 'tg-webui'),
+                logFile: 'tg-webui.log',
+                process
