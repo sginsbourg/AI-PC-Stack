@@ -4,4 +4,4 @@ local_services:
   melotts: http://localhost:9880
   openmanus: http://localhost:7860
   opensora: http://localhost:7861
-  tg_webui: http://localhost:7862
+  tg-webui: http://localhost:7862

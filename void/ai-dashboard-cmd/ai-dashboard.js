@@ -141,11 +141,20 @@ class AIDashboard {
         };
         this.red = '\x1b[31m';
         this.green = '\x1b[32m';
+        this.yellow = '\x1b[33m';
+        this.blue = '\x1b[34m';
         this.blinkGreen = '\x1b[32;5m';
         this.reset = '\x1b[0m';
         
+        // Create log directory
+        if (!fs.existsSync(this.logDir)) {
+            fs.mkdirSync(this.logDir, { recursive: true });
+        }
+        
         this.validateServices();
         this.setupConsole();
+        this.checkVoidAI();
+        this.generateVoidConfig();
     }
 
     validateServices() {
@@ -161,102 +170,40 @@ class AIDashboard {
                     service.maxRestarts = 5;
                 }
             });
-            console.log('Service configurations validated successfully.');
         } catch (error) {
             console.error('Service validation failed:', error.message);
             process.exit(1);
         }
     }
 
-    stripAnsi(str) {
-        try {
-            return str.replace(/\x1b\[[0-9;]*m/g, '');
-        } catch (error) {
-            console.error('Error in stripAnsi:', error.message);
-            return str;
-        }
+    setupConsole() {
+        console.clear();
+        process.title = 'AI Services Dashboard';
+        
+        // Handle Ctrl+C gracefully
+        process.on('SIGINT', () => {
+            this.shutdown();
+        });
     }
 
-    isAllServicesHealthy() {
-        try {
-            return this.services.every(service => this.getStatusIcon(service.status) === 'OK');
-        } catch (error) {
-            console.error('Error in isAllServicesHealthy:', error.message);
-            return false;
-        }
+    checkVoidAI() {
+        exec('where void', (error) => {
+            this.voidFound = !error;
+        });
     }
 
-    updateSystemMetrics() {
-        try {
-            // RAM sync
-            const totalMem = os.totalmem() / 1024 / 1024 / 1024; // GB
-            const freeMem = os.freemem() / 1024 / 1024 / 1024;
-            const usedMem = totalMem - freeMem;
-            const ramPercent = Math.round((usedMem / totalMem) * 100);
-            this.systemMetrics.ram = ramPercent + '%';
-        } catch (error) {
-            console.error('Error updating RAM metrics:', error.message);
-            this.systemMetrics.ram = 'N/A';
-        }
+    generateVoidConfig() {
+        const config = {
+            local_services: {}
+        };
+        
+        this.services.forEach(service => {
+            config.local_services[service.name.toLowerCase()] = `http://localhost:${service.port}`;
+        });
 
-        try {
-            // CPU
-            exec('wmic cpu get loadpercentage /value', (err, stdout, stderr) => {
-                if (err) {
-                    console.error('Error fetching CPU metrics:', err.message);
-                    return;
-                }
-                if (stdout) {
-                    const lines = stdout.trim().split('\n');
-                    for (let line of lines) {
-                        if (line.includes('LoadPercentage')) {
-                            const percent = line.match(/(\d+)/);
-                            if (percent) {
-                                this.systemMetrics.cpu = percent[1] + '%';
-                                break;
-                            }
-                        }
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Error in CPU metrics update:', error.message);
-            this.systemMetrics.cpu = 'N/A';
-        }
-
-        try {
-            // Disk C:
-            exec('wmic logicaldisk where DeviceID="C:" get Size,FreeSpace /value', (err, stdout, stderr) => {
-                if (err) {
-                    console.error('Error fetching disk metrics:', err.message);
-                    return;
-                }
-                if (stdout) {
-                    const lines = stdout.trim().split('\n');
-                    let size = 0, free = 0;
-                    for (let line of lines) {
-                        if (line.includes('Size=')) {
-                            const match = line.match(/Size=(\d+)/);
-                            if (match) size = parseInt(match[1]);
-                        } else if (line.includes('FreeSpace=')) {
-                            const match = line.match(/FreeSpace=(\d+)/);
-                            if (match) free = parseInt(match[1]);
-                        }
-                    }
-                    if (size > 0) {
-                        const used = size - free;
-                        const diskPercent = Math.round((used / size) * 100);
-                        this.systemMetrics.disk = diskPercent + '%';
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Error in disk metrics update:', error.message);
-            this.systemMetrics.disk = 'N/A';
-        }
+        fs.writeFileSync(this.voidConfig, YAML.stringify(config));
     }
 
-    // Add the missing methods that should follow (placeholder implementations)
     getStatusIcon(status) {
         const icons = {
             'running': '🟢',
@@ -268,53 +215,375 @@ class AIDashboard {
         return icons[status] || '⚪';
     }
 
-    setupConsole() {
-        // Basic console setup
-        console.log('AI Dashboard initialized');
+    formatResponseTime(ms) {
+        if (ms === null) return 'N/A';
+        if (ms < 1000) return `${ms}ms`;
+        return `${(ms / 1000).toFixed(1)}s`;
     }
 
-    // Add other essential methods that would be needed
-    startService(service) {
-        console.log(`Starting ${service.name}...`);
-        // Implementation would go here
+    formatUptime(startTime) {
+        if (!startTime) return 'N/A';
+        const uptime = Date.now() - startTime;
+        const seconds = Math.floor(uptime / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        
+        if (hours > 0) return `${hours}h ${minutes % 60}m`;
+        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+        return `${seconds}s`;
     }
 
-    stopService(service) {
-        console.log(`Stopping ${service.name}...`);
-        // Implementation would go here
+    async checkServiceHealth(service) {
+        return new Promise((resolve) => {
+            const startTime = Date.now();
+            const req = http.get(`http://localhost:${service.port}`, (res) => {
+                service.responseTime = Date.now() - startTime;
+                service.lastCheck = new Date().toLocaleTimeString();
+                
+                if (res.statusCode >= 200 && res.statusCode < 400) {
+                    service.status = service.responseTime > 5000 ? 'slow' : 'running';
+                } else {
+                    service.status = 'slow';
+                }
+                resolve(true);
+            });
+
+            req.on('error', () => {
+                service.responseTime = null;
+                service.lastCheck = new Date().toLocaleTimeString();
+                if (service.process && service.status !== 'starting') {
+                    service.status = 'crashed';
+                }
+                resolve(false);
+            });
+
+            req.setTimeout(5000, () => {
+                req.destroy();
+                service.responseTime = null;
+                service.lastCheck = new Date().toLocaleTimeString();
+                service.status = 'slow';
+                resolve(false);
+            });
+        });
     }
 
-    restartService(service) {
-        console.log(`Restarting ${service.name}...`);
-        // Implementation would go here
+    updateSystemMetrics() {
+        try {
+            // RAM
+            const totalMem = os.totalmem() / 1024 / 1024 / 1024;
+            const freeMem = os.freemem() / 1024 / 1024 / 1024;
+            const usedMem = totalMem - freeMem;
+            const ramPercent = Math.round((usedMem / totalMem) * 100);
+            this.systemMetrics.ram = ramPercent + '%';
+        } catch (error) {
+            this.systemMetrics.ram = 'N/A';
+        }
+
+        // CPU (simplified for now)
+        this.systemMetrics.cpu = 'N/A';
+        
+        // Disk (simplified for now)
+        this.systemMetrics.disk = 'N/A';
     }
 
-    startAllServices() {
-        console.log('Starting all services...');
-        // Implementation would go here
+    displayHeader() {
+        console.clear();
+        console.log('='.repeat(80));
+        console.log(`${this.green}🚀 AI SERVICES DASHBOARD${this.reset}`.padEnd(40) + `${this.blue}System: ${this.systemMetrics.cpu} CPU | ${this.systemMetrics.ram} RAM | ${this.systemMetrics.disk} Disk${this.reset}`);
+        console.log('='.repeat(80));
     }
 
-    stopAllServices() {
-        console.log('Stopping all services...');
-        // Implementation would go here
+    displayServices() {
+        console.log('\nSERVICE'.padEnd(this.columnWidths.service) + 
+                   'PORT'.padEnd(this.columnWidths.port) +
+                   'STATUS'.padEnd(this.columnWidths.statusIcon) +
+                   'INFO'.padEnd(this.columnWidths.statusInfo) +
+                   'RESPONSE'.padEnd(this.columnWidths.responseTime) +
+                   'LAST CHECK'.padEnd(this.columnWidths.lastCheck));
+        console.log('-'.repeat(80));
+
+        this.services.forEach(service => {
+            const statusIcon = this.getStatusIcon(service.status);
+            const statusColor = service.status === 'running' ? this.green : 
+                              service.status === 'starting' ? this.yellow :
+                              service.status === 'crashed' ? this.red : 
+                              service.status === 'slow' ? this.yellow : this.reset;
+
+            const info = service.pid ? `PID: ${service.pid}` : 'Not running';
+            const response = this.formatResponseTime(service.responseTime);
+            const lastCheck = service.lastCheck || 'Never';
+
+            console.log(service.name.padEnd(this.columnWidths.service) +
+                       service.port.toString().padEnd(this.columnWidths.port) +
+                       `${statusColor}${statusIcon}${this.reset}`.padEnd(this.columnWidths.statusIcon) +
+                       info.padEnd(this.columnWidths.statusInfo) +
+                       response.padEnd(this.columnWidths.responseTime) +
+                       lastCheck.padEnd(this.columnWidths.lastCheck));
+        });
+    }
+
+    displayFooter() {
+        console.log('\n' + '='.repeat(80));
+        console.log(`${this.green}CONTROLS:${this.reset} [V] Void AI | [S] Start All | [R] Restart All | [T] Stop All | [L] Logs | [Q] Quit`);
+        console.log('='.repeat(80));
     }
 
     displayDashboard() {
-        console.log('=== AI Services Dashboard ===');
-        // Implementation would go here
+        this.displayHeader();
+        this.displayServices();
+        this.displayFooter();
     }
 
-    // Main method to start the dashboard
-    start() {
+    async startService(service) {
+        if (service.process) {
+            return; // Already running
+        }
+
+        service.status = 'starting';
+        service.startTime = Date.now();
+
+        try {
+            const logStream = fs.createWriteStream(path.join(this.logDir, service.logFile), { flags: 'a' });
+            
+            const child = spawn(service.command, service.args, {
+                cwd: service.workingDir,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                detached: false
+            });
+
+            service.process = child;
+            service.pid = child.pid;
+
+            child.stdout.on('data', (data) => {
+                logStream.write(`[STDOUT] ${data}`);
+            });
+
+            child.stderr.on('data', (data) => {
+                logStream.write(`[STDERR] ${data}`);
+            });
+
+            child.on('close', (code) => {
+                service.process = null;
+                service.pid = null;
+                service.status = code === 0 ? 'stopped' : 'crashed';
+                logStream.write(`[INFO] Process exited with code ${code}\n`);
+                logStream.end();
+            });
+
+            // Wait a bit for service to start
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+        } catch (error) {
+            service.status = 'crashed';
+            console.error(`Failed to start ${service.name}:`, error.message);
+        }
+    }
+
+    async stopService(service) {
+        if (!service.process) {
+            return;
+        }
+
+        try {
+            service.process.kill();
+            service.process = null;
+            service.pid = null;
+            service.status = 'stopped';
+            service.startTime = null;
+        } catch (error) {
+            console.error(`Failed to stop ${service.name}:`, error.message);
+        }
+    }
+
+    async startAllServices() {
+        console.log('\nStarting all services...');
+        for (const service of this.services) {
+            await this.startService(service);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Stagger starts
+        }
+    }
+
+    async stopAllServices() {
+        console.log('\nStopping all services...');
+        for (const service of this.services) {
+            await this.stopService(service);
+        }
+    }
+
+    async restartAllServices() {
+        await this.stopAllServices();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await this.startAllServices();
+    }
+
+    showLogsMenu() {
+        console.log('\n=== SERVICE LOGS ===');
+        this.services.forEach((service, index) => {
+            console.log(`[${index + 1}] ${service.name}`);
+        });
+        console.log('[0] Back to dashboard');
+        
+        this.getUserInput('Select service to view logs: ', (input) => {
+            const choice = parseInt(input);
+            if (choice === 0) return;
+            
+            if (choice >= 1 && choice <= this.services.length) {
+                this.viewServiceLogs(this.services[choice - 1]);
+            }
+        });
+    }
+
+    viewServiceLogs(service) {
+        const logPath = path.join(this.logDir, service.logFile);
+        
+        if (!fs.existsSync(logPath)) {
+            console.log(`No logs found for ${service.name}`);
+            return;
+        }
+
+        console.log(`\n=== ${service.name} LOGS ===`);
+        try {
+            const logContent = fs.readFileSync(logPath, 'utf8');
+            const lines = logContent.split('\n').slice(-50); // Last 50 lines
+            console.log(lines.join('\n'));
+        } catch (error) {
+            console.log(`Error reading logs: ${error.message}`);
+        }
+        
+        console.log('\nPress any key to continue...');
+        process.stdin.once('data', () => {
+            this.displayDashboard();
+        });
+    }
+
+    getUserInput(prompt, callback) {
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+        rl.question(prompt, (answer) => {
+            rl.close();
+            callback(answer);
+        });
+    }
+
+    setupInputHandling() {
+        process.stdin.setRawMode(true);
+        process.stdin.resume();
+        process.stdin.setEncoding('utf8');
+
+        process.stdin.on('data', (key) => {
+            const str = key.toString();
+            
+            switch (str.toLowerCase()) {
+                case 'v':
+                    this.launchVoidAI();
+                    break;
+                case 's':
+                    this.startAllServices();
+                    break;
+                case 'r':
+                    this.restartAllServices();
+                    break;
+                case 't':
+                    this.stopAllServices();
+                    break;
+                case 'l':
+                    this.showLogsMenu();
+                    break;
+                case 'q':
+                    this.shutdown();
+                    break;
+                case '\u0003': // Ctrl+C
+                    this.shutdown();
+                    break;
+            }
+        });
+    }
+
+    launchVoidAI() {
+        if (!this.voidFound) {
+            console.log('\nVoid AI not found in PATH. Please install Void AI first.');
+            return;
+        }
+
+        if (this.voidProcess) {
+            console.log('\nVoid AI is already running.');
+            return;
+        }
+
+        console.log('\nLaunching Void AI...');
+        this.voidProcess = spawn('void', ['--config', this.voidConfig], {
+            stdio: 'inherit',
+            detached: true
+        });
+
+        this.voidProcess.on('close', () => {
+            this.voidProcess = null;
+        });
+    }
+
+    async monitorServices() {
+        for (const service of this.services) {
+            await this.checkServiceHealth(service);
+        }
+        this.updateSystemMetrics();
+    }
+
+    async start() {
+        console.log('Initializing AI Services Dashboard...');
+        
+        // Start monitoring
+        this.monitoringInterval = setInterval(() => {
+            this.monitorServices();
+        }, 5000);
+
+        // Start dashboard updates
+        this.dashboardUpdateInterval = setInterval(() => {
+            this.displayDashboard();
+        }, 2000);
+
+        // Setup input handling
+        this.setupInputHandling();
+
+        // Initial display
         this.displayDashboard();
-        console.log('Dashboard started. Press Ctrl+C to exit.');
+        
+        console.log('\nDashboard started. Use keyboard controls to manage services.');
+    }
+
+    async shutdown() {
+        console.log('\nShutting down AI Services Dashboard...');
+        
+        clearInterval(this.monitoringInterval);
+        clearInterval(this.dashboardUpdateInterval);
+        
+        await this.stopAllServices();
+        
+        if (this.voidProcess) {
+            this.voidProcess.kill();
+        }
+        
+        console.log('All services stopped. Goodbye!');
+        process.exit(0);
     }
 }
 
-// Create and start the dashboard if this file is run directly
-if (require.main === module) {
-    const dashboard = new AIDashboard();
-    dashboard.start();
-}
+// Simple YAML stringify for config
+const YAML = {
+    stringify(obj) {
+        let yaml = '';
+        for (const [key, value] of Object.entries(obj)) {
+            yaml += `${key}:\n`;
+            for (const [subKey, subValue] of Object.entries(value)) {
+                yaml += `  ${subKey}: ${subValue}\n`;
+            }
+        }
+        return yaml;
+    }
+};
 
-module.exports = AIDashboard;
+// Create and start the dashboard
+const dashboard = new AIDashboard();
+dashboard.start();
