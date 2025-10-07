@@ -1,6 +1,6 @@
 @echo off
+color 0A
 title MeloTTS Setup and Run
-color 0B
 
 :: --- Configuration ---
 set "PROJECT_DIR=C:\Users\sgins\AI_STACK\MeloTTS"

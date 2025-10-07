@@ -1,4 +1,5 @@
 @echo off
+color 0A
 title Orpheus-TTS
 echo Starting Orpheus-TTS Web UI...
 

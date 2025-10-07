@@ -1,4 +1,5 @@
 @echo off
+color 0A
 title OpenSora
 echo Starting Open-Sora Web UI...
 

@@ -1,4 +1,5 @@
 @echo off
+color 0A
 title AI Stack Dashboard
 cd /d "C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\ai-stack-dashboard"
 

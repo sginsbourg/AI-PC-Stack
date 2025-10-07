@@ -1,4 +1,5 @@
 @echo off
+color 0A
 title Podcast Generator
 cd /d "C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\podcast-generator"
 if not exist podcast_server.js pause

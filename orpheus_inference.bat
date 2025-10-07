@@ -1,13 +1,12 @@
 @echo off
+color 0A
+title Orpheus-TTS Runner
 setlocal
 
 :: ==============================
 :: Orpheus-TTS Runner
 :: Copies script, activates environment, and runs inference
 :: ==============================
-
-color 0A
-title Orpheus-TTS Runner
 
 set "SOURCE_SCRIPT=C:\Users\sgins\OneDrive\Documents\GitHub\AI-PC-Stack\orpheus_inference.py"
 set "TARGET_DIR=C:\Users\sgins\AI_STACK\Orpheus-TTS"

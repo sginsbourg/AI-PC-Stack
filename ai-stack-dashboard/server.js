@@ -62,7 +62,7 @@ const services = {
     tgWebUI: {
         name: "Text Generation WebUI",
         path: "C:/Users/sgins/AI_STACK/tg-webui",
-        startCommand: "python server.py",
+        startCommand: "python one_click.py",
         stopCommand: "taskkill /f /im python.exe",
         port: 7860,
         webInterface: true,

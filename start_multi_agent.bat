@@ -1,4 +1,5 @@
 @echo off
+color 0A
 title Multi-Agent
 
 echo Starting Multi-Agent Article Generator...
