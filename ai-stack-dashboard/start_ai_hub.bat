@@ -7,6 +7,7 @@ echo Starting AI Stack Dashboard...
 echo.
 
 :: Start server
+if nit exist server.js pause
 start "AI Dashboard Server" node server.js
 
 :: Wait for server
@@ -21,5 +22,5 @@ echo 📍 http://localhost:3000
 echo.
 echo Your AI tools are ready to manage!
 echo.
-pause
-exit
+:: Wait for server
+timeout /t 30 /nobreak >nul
