@@ -7,7 +7,7 @@ echo Starting AI Stack Dashboard...
 echo.
 
 :: Start server
-if nit exist server.js pause
+if not exist server.js pause
 start "AI Dashboard Server" node server.js
 
 :: Wait for server
